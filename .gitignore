@@ -1,0 +1,15 @@
+# files
+.env
+data/!*.py
+data/*
+TempCodeFile.py
+
+# folders
+__pycache__/
+.mypy_cache/
+.ropeproject/
+.vscode/
+logs/
+
+# my config
+mypy_config.toml
