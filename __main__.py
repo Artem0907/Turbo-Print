@@ -1,20 +1,36 @@
 from pathlib import Path
+
+from src.filters import LevelFilter
 from src.handlers import FileHandler, StreamHandler
 from src.formatters import DefaultFormatter
-from src.types import LogLevel
+from src.my_types import LogLevel
 from src.turbo_print import TurboPrint
 
-tp = TurboPrint(enabled=True, level=LogLevel.NOTSET, propagate=False)
-tp.add_handler(FileHandler(Path("d:/python/function/logs"), max_size=1024 * 10))
-tp.add_handler(StreamHandler())
-tp._root_logger("...", LogLevel.WARN)
+
+root_logger = TurboPrint.get_logger()
+main_logger = TurboPrint("main", enabled=True, level=LogLevel.NOTSET, propagate=False)
+main_logger.add_handler(
+    FileHandler(
+        Path("d:/python/function/turbo_print/logs"), "__main__", max_size=10 * 1024
+    )
+)
+root_logger.level = LogLevel.NOTSET
 
 
-tp("starting app...", LogLevel.DEBUG)
-tp("app started", LogLevel.LOG)
-tp("stopping app...", LogLevel.DEBUG)
-tp("app stopped", LogLevel.LOG)
-tp("exiting app...", LogLevel.DEBUG)
-tp("app exited", LogLevel.LOG)
+_NAME = "logger"
+_ITERATIONS = int(input("Enter the number of iterations from check logger: "))
+_OPERATIONS = ["start", "wait", "stopp", "restart", "exit", "delet"]
 
-print("done")
+for iteration in range(_ITERATIONS):
+    for operation_id, operation_name in enumerate(_OPERATIONS):
+        main_logger(f"{operation_name}ing {_NAME}...", LogLevel.DEBUG)
+        main_logger(f"{_NAME} {operation_name}ed", LogLevel.LOG)
+
+        root_logger(
+            (
+                f"[{iteration+1}/{_ITERATIONS}]"
+                + f"[{operation_id+1}/{len(_OPERATIONS)}]"
+                + f"From {repr(main_logger)}"
+            ),
+            LogLevel.SUCCESS,
+        )

@@ -8,20 +8,19 @@ from typing import (
     cast as _cast,
     Literal as _Literal,
 )
-from sys import stderr as _stderr
 from datetime import datetime as _datetime
 
-from src.types import (
+from .my_types import (
     LogLevel as _LogLevel,
     TurboPrintOutput as _TurboPrintOutput,
     LogRecord as _LogRecord,
 )
-from src.formatters import (
+from .formatters import (
     BaseFormatter as _BaseFormatter,
     DefaultFormatter as _DefaultFormatter,
 )
-from src.filters import BaseFilter as _BaseFilter
-from src.handlers import BaseHandler as _BaseHandler, StreamHandler as _StreamHandler
+from .filters import BaseFilter as _BaseFilter
+from .handlers import BaseHandler as _BaseHandler, StreamHandler as _StreamHandler
 
 __all__ = ["TurboPrint"]
 ROOT_LOGGER_NAME = "root"
@@ -73,8 +72,8 @@ class TurboPrint:
 
     def __init__(
         self,
-        *,
         name: _Optional[str] = None,
+        *,
         enabled: bool = True,
         prefix: _Optional[str] = None,
         level: _LogLevel = _LogLevel.NOTSET,
@@ -114,7 +113,8 @@ class TurboPrint:
             - Для использования иерархии логгеров укажите parent.
             - Изменяемые аргументы (handlers/filters) передаются по ссылке.
         """
-        self._init_root_logger()
+        if not hasattr(TurboPrint, "_root_logger"):
+            TurboPrint._init_root_logger()
 
         self.name = name or str(id(self))
         self.enabled = enabled
@@ -123,7 +123,7 @@ class TurboPrint:
         self.parent = parent if parent else self._root_logger
         self.propagate = propagate
         self.handlers = handlers
-        self.filters = filters
+        self.filters = self.parent.get_filters() + filters if self.parent else filters
         self.formatter = formatter
         self._children: list[TurboPrint] = []
 
@@ -138,19 +138,20 @@ class TurboPrint:
     def __call__(
         self, message: str, level: _LogLevel = _LogLevel.NOTSET, **kwargs: _Any
     ) -> _TurboPrintOutput | _Literal[False]:
-        """Основной метлд логирования"""
-        if not self.enabled or level.value < self.level.value:
+        """Основной метод логирования"""
+        if not self.enabled or not self._level_filter(level):
             return False
 
         record = _LogRecord(
             message=message,
+            name=self.name,
             level=level,
             prefix=self.prefix,
             date_time=_datetime.now(),
             parent=self.parent,
             extra=kwargs,
         )
-        if not all(f.filter(record) for f in self.filters):
+        if any(not f.filter(record) for f in self.get_filters()):
             return False
 
         formatted = _TurboPrintOutput(
@@ -158,16 +159,10 @@ class TurboPrint:
             standard_file=self.formatter.format(record),
         )
 
-        for handler in self.handlers:
-            try:
-                handler.handle(record, formatted)
-            except Exception as e:
-                _stderr.write(
-                    f"Ошибка обработчика {handler.__class__.__name__}: {str(e)}\n"
-                )
+        self._start_handlers(record, formatted)
 
-        if self.propagate and self.parent:
-            self.parent._propagate(record, formatted)
+        if self.parent and self.propagate:
+            self.parent._propagate(record)
 
         return formatted
 
@@ -175,21 +170,40 @@ class TurboPrint:
         """Добавление дочернего логгера"""
         self._children.append(child)
 
-    def _propagate(self, record: _LogRecord, formatted: _TurboPrintOutput) -> None:
+    def _propagate(self, record: _LogRecord) -> None:
         """Распространение записи по иерархии"""
-        if self.level.value <= record["level"].value and all(
-            f.filter(record) for f in self.filters
-        ):
-            for handler in self.handlers:
-                try:
-                    handler.handle(record, formatted)
-                except Exception as e:
-                    _stderr.write(
-                        f"Ошибка обработчика {handler.__class__.__name__}: {str(e)}\n"
-                    )
+        record["name"] = self.name
+        record["prefix"] = self.prefix
+        record["parent"] = self.parent
 
-        if self.propagate and self.parent is not None:
-            self.parent._propagate(record, formatted)
+        if self.level <= record["level"]:
+            formatted = _TurboPrintOutput(
+                colored_console=self.formatter.format_colored(record),
+                standard_file=self.formatter.format(record),
+            )
+            self._start_handlers(record, formatted)
+
+        if self.parent and self.propagate:
+            self.parent._propagate(record)
+
+    def _start_handlers(self, record: _LogRecord, formatted: _TurboPrintOutput) -> None:
+        """Запуск обработчиков"""
+        for handler in self.get_handlers():
+            try:
+                handler.handle(record, formatted)
+            except Exception as e:
+                print(f"Ошибка обработчика {handler}: {e}")
+
+    def _level_filter(self, level: _LogLevel) -> bool:
+        """Фильтрация по уровню логирования"""
+        if self.parent:
+            return self.level <= level and self.parent._level_filter(level)
+        else:
+            return self.level <= level
+
+    def get_filters(self) -> list[_BaseFilter]:
+        """Получение списка фильтров"""
+        return self.parent.get_filters() + self.filters if self.parent else self.filters
 
     def add_filter(self, filter: _BaseFilter) -> None:
         """Добавление фильтра"""
@@ -199,12 +213,24 @@ class TurboPrint:
         """Добавление обработчика"""
         self.handlers.append(handler)
 
+    def get_handlers(self) -> list[_BaseHandler]:
+        """Получение списка обработчиков"""
+        return (
+            self.parent.get_handlers() + self.handlers
+            if self.parent and self.propagate
+            else self.handlers
+        )
+
     def set_formatter(self, formatter: _BaseFormatter) -> None:
         """Изменение форматировщика"""
         self.formatter = formatter
 
-    def exception(self, **log_params) -> _Callable[[_F], _F]:
-        """Декоратор для автоматического логирования исключений"""
+    def exception(self, **log_params: _Any) -> _Callable[[_F], _F]:
+        """Декоратор для логирования исключений.
+
+        Note:
+            После логирования исключение пробрасывается повторно.
+        """
 
         def get_func(func: _F) -> _F:
             @wraps(func)
@@ -217,11 +243,16 @@ class TurboPrint:
                         _LogLevel.CRITICAL,
                         **log_params,
                     )
-                    return
+                    raise
 
             return _cast(_F, wrapper)
 
         return get_func
 
     def __repr__(self) -> str:
-        return f"<TurboPrint: {self.name}>"
+        return (
+            f'<{self.__class__.__name__}[{self.name}]: "{self.__class__.__module__}">'
+        )
+
+    def __str__(self) -> str:
+        return self.name
