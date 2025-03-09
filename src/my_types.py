@@ -54,7 +54,7 @@ class LogLevel(_Enum):
             50: _Fore.LIGHTYELLOW_EX,
             60: _Fore.LIGHTRED_EX,
             70: _Fore.RED + _Style.BRIGHT,
-        }[self.value]
+        }.get(self.value, _Fore.WHITE)
 
     def __eq__(self, other: _Self | int) -> bool:
         """Определяет поведение оператора равенства, =="""

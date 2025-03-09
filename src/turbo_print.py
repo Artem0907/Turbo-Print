@@ -197,9 +197,9 @@ class TurboPrint:
     def _level_filter(self, level: _LogLevel) -> bool:
         """Фильтрация по уровню логирования"""
         if self.parent:
-            return self.level <= level and self.parent._level_filter(level)
+            return level >= self.level and self.parent._level_filter(level)
         else:
-            return self.level <= level
+            return level >= self.level
 
     def get_filters(self) -> list[_BaseFilter]:
         """Получение списка фильтров"""

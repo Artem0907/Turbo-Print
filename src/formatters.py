@@ -1,4 +1,4 @@
-from abc import ABC as _ABC, abstractmethod as _abstractmethod
+from abc import ABC as _ABC, ABCMeta as _ABCMeta, abstractmethod as _abstractmethod
 from colorama import Style as _Style
 from ujson import dumps as _dumps
 
@@ -8,7 +8,7 @@ __all__ = ["BaseFormatter", "DefaultFormatter", "JSONFormatter"]
 _DEFAULT_FORMAT = "[{time}] {prefix} | {level_name}[{level_value}]: {message}"
 
 
-class BaseFormatter(_ABC):
+class BaseFormatter(_ABC, metaclass=_ABCMeta):
     """Базовый класс для форматирования записей"""
 
     @_abstractmethod

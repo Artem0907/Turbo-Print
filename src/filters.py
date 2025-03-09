@@ -1,4 +1,4 @@
-from abc import ABC as _ABC, abstractmethod as _abstractmethod
+from abc import ABC as _ABC, ABCMeta as _ABCMeta, abstractmethod as _abstractmethod
 from re import compile as _re_compile
 from datetime import time as _time
 
@@ -12,7 +12,7 @@ __all__ = [
 ]
 
 
-class BaseFilter(_ABC):
+class BaseFilter(_ABC, metaclass=_ABCMeta):
     """Базовый класс для фильтрации записей лога"""
 
     @_abstractmethod
@@ -58,4 +58,7 @@ class TimeFilter(BaseFilter):
 
     def filter(self, record: _LogRecord) -> bool:
         log_time = record["date_time"].time()
-        return self.start <= log_time <= self.end
+        if self.start <= self.end:
+            return self.start <= log_time <= self.end
+        else:
+            return log_time >= self.start or log_time <= self.end

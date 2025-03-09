@@ -11,10 +11,17 @@ root_logger = TurboPrint.get_logger()
 main_logger = TurboPrint("main", enabled=True, level=LogLevel.NOTSET, propagate=False)
 main_logger.add_handler(
     FileHandler(
-        Path("d:/python/function/turbo_print/logs"), "__main__", max_size=10 * 1024
+        Path("d:/python/function/turbo_print/logs"),
+        "__main__",
+        max_size=50 * 1024,
+        max_lines=1000,
     )
 )
 root_logger.level = LogLevel.NOTSET
+
+
+# main_logger.level = LogLevel.LOG
+# main_logger.add_handler(StreamHandler())
 
 
 _NAME = "logger"
