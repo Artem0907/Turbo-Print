@@ -2,7 +2,7 @@ from abc import ABC as _ABC, ABCMeta as _ABCMeta, abstractmethod as _abstractmet
 from colorama import Style as _Style
 from ujson import dumps as _dumps
 
-from .my_types import LogRecord as _LogRecord
+from src.my_types import LogRecord as _LogRecord
 
 __all__ = ["BaseFormatter", "DefaultFormatter", "JSONFormatter"]
 _DEFAULT_FORMAT = "[{time}] {prefix} | {level_name}[{level_value}]: {message}"
@@ -21,7 +21,7 @@ class BaseFormatter(_ABC, metaclass=_ABCMeta):
         return self.format(record)
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__}: "{self.__class__.__module__}">'
+        return f"<class 'turbo_print.{self.__class__.__module__}.{self.__class__.__name__}'>"
 
     def __str__(self) -> str:
         return self.__class__.__name__

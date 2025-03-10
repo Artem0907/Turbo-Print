@@ -10,17 +10,17 @@ from typing import (
 )
 from datetime import datetime as _datetime
 
-from .my_types import (
+from src.my_types import (
     LogLevel as _LogLevel,
     TurboPrintOutput as _TurboPrintOutput,
     LogRecord as _LogRecord,
 )
-from .formatters import (
+from src.formatters import (
     BaseFormatter as _BaseFormatter,
     DefaultFormatter as _DefaultFormatter,
 )
-from .filters import BaseFilter as _BaseFilter
-from .handlers import BaseHandler as _BaseHandler, StreamHandler as _StreamHandler
+from src.filters import BaseFilter as _BaseFilter
+from src.handlers import BaseHandler as _BaseHandler, StreamHandler as _StreamHandler
 
 __all__ = ["TurboPrint"]
 ROOT_LOGGER_NAME = "root"
@@ -36,17 +36,15 @@ class TurboPrint:
     @classmethod
     def _init_root_logger(cls) -> None:
         """Инициализация корневого логгера"""
-        root = cls.__new__(cls)
-        root.name = ROOT_LOGGER_NAME
+        cls._root_logger = None  # type: ignore
+        root = cls(
+            ROOT_LOGGER_NAME,
+            prefix="ROOT",
+            level=_LogLevel.LOG,
+            propagate=False,
+            handlers=[_StreamHandler()],
+        )
         root.parent = None
-        root._children = []
-        root.prefix = "ROOT"
-        root.enabled = True
-        root.level = _LogLevel.LOG
-        root.filters = []
-        root.handlers = [_StreamHandler()]
-        root.formatter = _DefaultFormatter()
-        root.propagate = False
 
         cls._root_logger = root
         cls._registry[ROOT_LOGGER_NAME] = root
@@ -79,8 +77,8 @@ class TurboPrint:
         level: _LogLevel = _LogLevel.NOTSET,
         parent: _Optional["TurboPrint"] = None,
         propagate: bool = True,
-        handlers: list[_BaseHandler] = [],
-        filters: list[_BaseFilter] = [],
+        handlers: _Optional[list[_BaseHandler]] = None,
+        filters: _Optional[list[_BaseFilter]] = None,
         formatter: _BaseFormatter = _DefaultFormatter(),
     ) -> None:
         """Инициализирует экземпляр логгера TurboPrint.
@@ -122,8 +120,12 @@ class TurboPrint:
         self.level = level
         self.parent = parent if parent else self._root_logger
         self.propagate = propagate
-        self.handlers = handlers
-        self.filters = self.parent.get_filters() + filters if self.parent else filters
+        self.handlers = handlers or []
+        self.filters = (
+            ((self.parent.get_filters() + filters) if self.parent else filters)
+            if filters
+            else []
+        )
         self.formatter = formatter
         self._children: list[TurboPrint] = []
 
@@ -172,19 +174,20 @@ class TurboPrint:
 
     def _propagate(self, record: _LogRecord) -> None:
         """Распространение записи по иерархии"""
-        record["name"] = self.name
-        record["prefix"] = self.prefix
-        record["parent"] = self.parent
+        new_record = record.copy()
+        new_record["name"] = self.name
+        new_record["prefix"] = self.prefix
+        new_record["parent"] = self.parent
 
-        if self.level <= record["level"]:
+        if self.level <= new_record["level"]:
             formatted = _TurboPrintOutput(
-                colored_console=self.formatter.format_colored(record),
-                standard_file=self.formatter.format(record),
+                colored_console=self.formatter.format_colored(new_record),
+                standard_file=self.formatter.format(new_record),
             )
-            self._start_handlers(record, formatted)
+            self._start_handlers(new_record, formatted)
 
         if self.parent and self.propagate:
-            self.parent._propagate(record)
+            self.parent._propagate(new_record)
 
     def _start_handlers(self, record: _LogRecord, formatted: _TurboPrintOutput) -> None:
         """Запуск обработчиков"""
@@ -250,9 +253,7 @@ class TurboPrint:
         return get_func
 
     def __repr__(self) -> str:
-        return (
-            f'<{self.__class__.__name__}[{self.name}]: "{self.__class__.__module__}">'
-        )
+        return f"<class 'turbo_print.{self.__class__.__module__}.{self.__class__.__name__}[{self.name}]'>"
 
     def __str__(self) -> str:
         return self.name

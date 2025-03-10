@@ -2,11 +2,11 @@ from abc import ABC as _ABC, ABCMeta as _ABCMeta, abstractmethod as _abstractmet
 from pathlib import Path as _Path
 from sys import stdout as _console
 from typing import Optional as _Optional, TextIO as _TextIO
-from threading import Lock as _Lock_thread
+from threading import Lock as _Lock_thread, Thread as _Thread
 from aiogram import Bot as _Bot
 from asyncio import get_running_loop as _get_running_loop, run as _async_run
 
-from .my_types import LogRecord as _LogRecord, TurboPrintOutput as _TurboPrintOutput
+from src.my_types import LogRecord as _LogRecord, TurboPrintOutput as _TurboPrintOutput
 
 __all__ = [
     "BaseHandler",
@@ -26,7 +26,7 @@ class BaseHandler(_ABC, metaclass=_ABCMeta):
         raise NotImplementedError
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__}: "{self.__class__.__module__}">'
+        return f"<class 'turbo_print.{self.__class__.__module__}.{self.__class__.__name__}'>"
 
     def __str__(self) -> str:
         return self.__class__.__name__
@@ -67,7 +67,7 @@ class FileHandler(BaseHandler):
         self.filename = file_name
         self.file_directory = file_directory
         self.max_size = max_size
-        self.max_lines = max_lines
+        self.max_lines = max_lines + 1 if max_lines else None
         self._lock = _Lock_thread()
         self.current_file = self._get_current_file()
 
@@ -88,8 +88,11 @@ class FileHandler(BaseHandler):
                 self.current_file = self._get_current_file()
                 self.current_file.touch()
 
-            with open(self.current_file, "a", encoding="utf-8") as f:
-                f.write(formatted["standard_file"] + "\n")
+            try:
+                with open(self.current_file, "a", encoding="utf-8") as f:
+                    f.write(formatted["standard_file"] + "\n")
+            except OSError as exception:
+                print(f"Ошибка записи в файл: {exception}")
 
     def _get_current_file(self) -> _Path:
         """Получение текущего файла"""
@@ -124,8 +127,11 @@ class TelegramHandler(BaseHandler):
         await self.bot.send_message(self.chat_id, formatted["standard_file"])
 
     def handle(self, record: _LogRecord, formatted: _TurboPrintOutput) -> None:
+        def async_wrapper():
+            _async_run(self.async_handle(record, formatted))
+
         try:
             loop = _get_running_loop()
             loop.create_task(self.async_handle(record, formatted))
         except RuntimeError:
-            _async_run(self.async_handle(record, formatted))
+            _Thread(target=async_wrapper).start()

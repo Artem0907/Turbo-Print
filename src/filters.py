@@ -2,7 +2,7 @@ from abc import ABC as _ABC, ABCMeta as _ABCMeta, abstractmethod as _abstractmet
 from re import compile as _re_compile
 from datetime import time as _time
 
-from .my_types import LogRecord as _LogRecord, LogLevel as _LogLevel
+from src.my_types import LogRecord as _LogRecord, LogLevel as _LogLevel
 
 __all__ = [
     "BaseFilter",
@@ -21,7 +21,7 @@ class BaseFilter(_ABC, metaclass=_ABCMeta):
         raise NotImplementedError
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__}: "{self.__class__.__module__}">'
+        return f"<class 'turbo_print.{self.__class__.__module__}.{self.__class__.__name__}'>"
 
     def __str__(self) -> str:
         return self.__class__.__name__
