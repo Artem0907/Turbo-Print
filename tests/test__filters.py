@@ -1,68 +1,43 @@
-from unittest.mock import MagicMock as _MagicMock, patch as _patch
-from io import StringIO as _StringIO
-from datetime import time as _time, datetime as _datetime
-from contextlib import redirect_stdout as _redirect_stdout
-
-from tests.test__main import MainTestCase as _MainTestCase
-from src.my_types import LogLevel as _LogLevel, LogRecord as _LogRecord
-from src.filters import (
-    LevelFilter as _LevelFilter,
-    RegexFilter as _RegexFilter,
-    TimeFilter as _TimeFilter,
-)
-
-__all__ = [
-    "FiltersTestCase",
-    "Test_LevelFilter",
-    "Test_RegexFilter",
-    "Test_TimeFilter",
-]
+import unittest
+from datetime import datetime
+from src.my_types import LogRecord, LogLevel
+from src.filters import LevelFilter, RegexFilter, TimeFilter
 
 
-class FiltersTestCase(_MainTestCase):
-    def setUp(self):
-        super().setUp()
-
-    def tearDown(self):
-        super().tearDown()
-
-
-class Test_LevelFilter(FiltersTestCase):
-    @_patch("sys.stdout", new_callable=_StringIO)
-    @_patch("builtins.open", create=True)
-    def test_filter(self, mock_open: _MagicMock, mock_stdout: _StringIO) -> None:
-        record: _LogRecord = {"level": _LogLevel.LOG}  # type: ignore
-
-        self.assertTrue(_LevelFilter(_LogLevel.DEBUG).filter(record))
-        self.assertTrue(_LevelFilter(_LogLevel.LOG).filter(record))
-        self.assertFalse(_LevelFilter(_LogLevel.ERROR).filter(record))
-
-
-class Test_RegexFilter(FiltersTestCase):
-    @_patch("sys.stdout", new_callable=_StringIO)
-    @_patch("builtins.open", create=True)
-    def test_filter(self, mock_open: _MagicMock, mock_stdout: _StringIO) -> None:
-        record: _LogRecord = {"message": "test EROR message"} # type: ignore
-        self.assertFalse(_RegexFilter(r"E[R]ROR", invert = False).filter(record))
-        self.assertTrue(_RegexFilter(r"E[R]ROR", invert =True).filter(record))
-
-
-class Test_TimeFilter(FiltersTestCase):
-    @_patch("sys.stdout", new_callable=_StringIO)
-    @_patch("builtins.open", create=True)
-    def test_filter(self, mock_open: _MagicMock, mock_stdout: _StringIO) -> None:
-        start_time = _time(10, 0, 0, 0)
-        end_time = _time(19, 0, 0, 0)
-        time_true = _datetime(2017, 6, 24, 15, 0, 0, 0)
-        time_false = _datetime(2017, 6, 24, 6, 0, 0, 0)
-
-        self.assertTrue(
-            _TimeFilter(start_time, end_time).filter(
-                {"date_time": time_true}  # type:  ignore
-            )
+class TestFilters(unittest.TestCase):
+    def setUp(self) -> None:
+        self.record = LogRecord(
+            message="Test message",
+            level=LogLevel.INFO,
+            name="test",
+            prefix=None,
+            timestamp=datetime.now(),
+            parent=None,
+            extra={},
         )
-        self.assertFalse(
-            _TimeFilter(start_time, end_time).filter(
-                {"date_time": time_false}  # type:  ignore
-            )
-        )
+
+    def test_level_filter(self) -> None:
+        filter = LevelFilter(LogLevel.WARNING)
+        self.record["level"] = LogLevel.ERROR
+        self.assertTrue(filter.filter(self.record))
+
+        self.record["level"] = LogLevel.DEBUG
+        self.assertFalse(filter.filter(self.record))
+
+    def test_regex_filter(self) -> None:
+        filter = RegexFilter(r"Test")
+        self.assertTrue(filter.filter(self.record))
+
+        filter_inverted = RegexFilter(r"Test", invert=True)
+        self.assertFalse(filter_inverted.filter(self.record))
+
+    def test_time_filter(self) -> None:
+        from datetime import time
+
+        morning_filter = TimeFilter(time(6, 0), time(12, 0))
+        self.record["timestamp"] = datetime(2023, 1, 1, 10, 0)
+        self.assertTrue(morning_filter.filter(self.record))
+
+
+if __name__ == "__main__":
+    unittest.main()

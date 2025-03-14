@@ -1,3 +1,3 @@
-from . import src, tests
+from . import src, tests, main
 
 __all__ = ["src", "tests"]

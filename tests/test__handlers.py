@@ -1,43 +1,44 @@
-from unittest.mock import MagicMock as _MagicMock, patch as _patch
-from io import StringIO as _StringIO
-from contextlib import redirect_stdout as _redirect_stdout
+import unittest
+from pathlib import Path
+from datetime import datetime
+from tempfile import TemporaryDirectory
+from src.handlers import StreamHandler, FileHandler
+from src.my_types import LogLevel, LogRecord, TurboPrintOutput
 
-from tests.test__main import MainTestCase as _MainTestCase
-from src.handlers import (
-    FileHandler as _FileHandler,
-    StreamHandler as _StreamHandler,
-    TelegramHandler as _TelegramHandler,
-)
+class TestStreamHandler(unittest.TestCase):
+    def test_handle(self) -> None:
+        handler = StreamHandler()
+        record: LogRecord = {
+            "message": "Test",
+            "level": LogLevel.INFO,
+            "name": "test",
+            "prefix": "TEST",
+            "timestamp": datetime.now(),
+            "parent": None,
+            "extra": {},
+        }
+        formatted: TurboPrintOutput = {
+            "colored_console": "[INFO] Test",
+            "standard_file": "[INFO] Test",
+        }
+        handler.handle(record, formatted)
 
-__all__ = [
-    "HandlersTestCase",
-    "Test_FileHandler",
-    "Test_StreamHandler",
-    "Test_TimeFilter",
-]
-
-
-class HandlersTestCase(_MainTestCase):
-    def setUp(self):
-        super().setUp()
-
-    def tearDown(self):
-        super().tearDown()
-
-
-class Test_FileHandler(HandlersTestCase):
-    @_patch("sys.stdout", new_callable=_StringIO)
-    @_patch("builtins.open", create=True)
-    def test_filter(self, mock_open: _MagicMock, mock_stdout: _StringIO) -> None: ...
-
-
-class Test_StreamHandler(HandlersTestCase):
-    @_patch("sys.stdout", new_callable=_StringIO)
-    @_patch("builtins.open", create=True)
-    def test_filter(self, mock_open: _MagicMock, mock_stdout: _StringIO) -> None: ...
-
-
-class Test_TimeFilter(HandlersTestCase):
-    @_patch("sys.stdout", new_callable=_StringIO)
-    @_patch("builtins.open", create=True)
-    def test_filter(self, mock_open: _MagicMock, mock_stdout: _StringIO) -> None: ...
+class TestFileHandler(unittest.TestCase):
+    def test_handle(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            handler = FileHandler(Path(tmpdir))
+            record: LogRecord = {
+                "message": "Test",
+                "level": LogLevel.INFO,
+                "name": "test",
+                "prefix": "TEST",
+                "timestamp": datetime.now(),
+                "parent": None,
+                "extra": {},
+            }
+            formatted: TurboPrintOutput = {
+                "colored_console": "[INFO] Test",
+                "standard_file": "[INFO] Test",
+            }
+            handler.handle(record, formatted)
+            self.assertTrue((Path(tmpdir) / "root_0.log").exists())

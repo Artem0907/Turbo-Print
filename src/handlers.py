@@ -1,45 +1,41 @@
-from abc import ABC as _ABC, ABCMeta as _ABCMeta, abstractmethod as _abstractmethod
-from pathlib import Path as _Path
-from sys import stdout as _console
-from typing import Optional as _Optional, TextIO as _TextIO
-from threading import Lock as _Lock_thread, Thread as _Thread
-from aiogram import Bot as _Bot
-from asyncio import get_running_loop as _get_running_loop, run as _async_run
+from abc import ABC, abstractmethod
+from datetime import datetime
+from pathlib import Path
+from sys import stdout
+from typing import Optional, TextIO
+from threading import Lock
+from aiogram import Bot
+from asyncio import get_running_loop, run_coroutine_threadsafe
 
-from src.my_types import LogRecord as _LogRecord, TurboPrintOutput as _TurboPrintOutput
+from src.my_types import LogRecord, TurboPrintOutput
 
-__all__ = [
-    "BaseHandler",
-    "StreamHandler",
-    "FileHandler",
-    "TelegramHandler",
-]
-_MAX_LOG_FILE_SIZE = 10 * 1024 * 1024  # 10mb
+__all__ = ["BaseHandler", "StreamHandler", "FileHandler", "TelegramHandler"]
 
 
-class BaseHandler(_ABC, metaclass=_ABCMeta):
-    """Базовый класс обработчиков логов"""
+class BaseHandler(ABC):
+    """Базовый класс обработчиков логов."""
 
-    @_abstractmethod
-    def handle(self, record: _LogRecord, formatted: _TurboPrintOutput) -> None:
-        """Обработка форматированной записи"""
+    @abstractmethod
+    def handle(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
+        """Обработка форматированной записи."""
         raise NotImplementedError
-
-    def __repr__(self) -> str:
-        return f"<class 'turbo_print.{self.__class__.__module__}.{self.__class__.__name__}'>"
-
-    def __str__(self) -> str:
-        return self.__class__.__name__
 
 
 class StreamHandler(BaseHandler):
-    """Вывод в консоль с поддержкой цветов"""
+    """Вывод в консоль с поддержкой цветов."""
 
-    def __init__(self, stream: _Optional[_TextIO] = None, use_colors: bool = True):
-        self.stream = stream or _console
+    def __init__(
+        self, stream: Optional[TextIO] = None, use_colors: bool = True
+    ) -> None:
+        """
+        Args:
+            stream (Optional[TextIO]): Выходной поток
+            use_colors (bool): Использовать цветное форматирование
+        """
+        self.stream = stream or stdout
         self.use_colors = use_colors
 
-    def handle(self, record: _LogRecord, formatted: _TurboPrintOutput) -> None:
+    def handle(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
         message = formatted[
             "colored_console" if self.use_colors else "standard_file"
         ].strip()
@@ -48,31 +44,33 @@ class StreamHandler(BaseHandler):
 
 
 class FileHandler(BaseHandler):
-    """
-    Args:
-        file_directory (Path): Директория для хранения логов.
-        file_name (str): Базовое имя файла. Default: "root".
-        max_size (int): Максимальный размер файла в байтах. Default: 10 МБ.
-        max_lines (Optional[int]): Максимальное количество строк в файле.
-            Если None - проверка отключена. Default: None.
-    """
+    """Обработчик для записи в файлы с ротацией."""
 
     def __init__(
         self,
-        file_directory: _Path,
-        file_name: str = "root",
-        max_size: int = _MAX_LOG_FILE_SIZE,
-        max_lines: _Optional[int] = None,
-    ):
+        file_directory: Path,
+        file_name: str = "root_{index}",
+        max_size: int = 10 * 1024 * 1024,  # 10 MB
+        max_lines: Optional[int] = None,
+    ) -> None:
+        """
+        Args:
+            file_directory (Path): Директория для хранения логов
+            file_name (str): Базовое имя файла (с форматом, поддерживает: date, time, `index`)
+            max_size (int): Максимальный размер файла в байтах
+            max_lines (Optional[int]): Максимальное количество строк
+        """
+        if "{index}" not in file_name:
+            raise ValueError("no `index` format")
         self.filename = file_name
         self.file_directory = file_directory
         self.max_size = max_size
-        self.max_lines = max_lines + 1 if max_lines else None
-        self._lock = _Lock_thread()
+        self.max_lines = max_lines
+        self._lock = Lock()
         self.current_file = self._get_current_file()
 
-    def handle(self, record: _LogRecord, formatted: _TurboPrintOutput) -> None:
-        """Запись в файл"""
+    def handle(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
+        """Запись в файл."""
         with self._lock:
             if self.max_lines:
                 if (
@@ -84,22 +82,24 @@ class FileHandler(BaseHandler):
                 ):
                     self.current_file = self._get_current_file()
                     self.current_file.touch()
-            elif self.current_file.stat().st_size >= self.max_size:
-                self.current_file = self._get_current_file()
-                self.current_file.touch()
 
             try:
                 with open(self.current_file, "a", encoding="utf-8") as f:
                     f.write(formatted["standard_file"] + "\n")
-            except OSError as exception:
-                print(f"Ошибка записи в файл: {exception}")
+            except OSError as e:
+                print(f"Ошибка записи в файл: {e}")
 
-    def _get_current_file(self) -> _Path:
-        """Получение текущего файла"""
+    def _get_current_file(self) -> Path:
+        """Получение текущего файла."""
         self.file_directory.mkdir(parents=True, exist_ok=True)
-        stamp = 0
+        stamp = 1
         while True:
-            candidate = self.file_directory / f"{self.filename}_{stamp}.log"
+            filename = self.filename.format(
+                date=datetime.now().strftime("%d/%m/%Y"),
+                time=datetime.now().strftime("%H:%M"),
+                index=stamp,
+            )
+            candidate = self.file_directory / f"{filename}.log"
             candidate.touch()
             if self.max_lines:
                 if (
@@ -114,24 +114,29 @@ class FileHandler(BaseHandler):
 
 
 class TelegramHandler(BaseHandler):
-    """Асинхронная отправка в Telegram через бота"""
+    """Асинхронная отправка в Telegram через бота."""
 
-    def __init__(self, token: str, chat_id: str):
-        self.bot = _Bot(token)
+    def __init__(self, token: str, chat_id: str) -> None:
+        """
+        Args:
+            token (str): Токен бота
+            chat_id (str): ID чата
+        """
+        self.bot = Bot(token)
         self.chat_id = chat_id
 
     async def async_handle(
-        self, record: _LogRecord, formatted: _TurboPrintOutput
+        self, record: LogRecord, formatted: TurboPrintOutput
     ) -> None:
-        """Отправка в телеграм"""
+        """Отправка в Telegram."""
         await self.bot.send_message(self.chat_id, formatted["standard_file"])
 
-    def handle(self, record: _LogRecord, formatted: _TurboPrintOutput) -> None:
-        def async_wrapper():
-            _async_run(self.async_handle(record, formatted))
-
+    def handle(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
+        """Обработка записи."""
         try:
-            loop = _get_running_loop()
+            loop = get_running_loop()
             loop.create_task(self.async_handle(record, formatted))
         except RuntimeError:
-            _Thread(target=async_wrapper).start()
+            run_coroutine_threadsafe(
+                self.async_handle(record, formatted), get_running_loop()
+            )
