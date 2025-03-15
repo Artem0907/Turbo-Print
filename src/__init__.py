@@ -32,7 +32,15 @@ TurboPrint - мощная и гибкая система логирования 
     child_logger("Сообщение от дочернего логгера", LogLevel.DEBUG)
 """
 
-from . import filters, formatters, handlers, my_types, turbo_print
+from . import (
+    filters,
+    formatters,
+    handlers,
+    my_types,
+    turbo_print,
+    inner_middlewares,
+    outer_middlewares,
+)
 
 __all__ = [
     "filters",
@@ -40,4 +48,6 @@ __all__ = [
     "handlers",
     "my_types",
     "turbo_print",
+    "inner_middlewares",
+    "outer_middlewares",
 ]

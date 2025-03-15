@@ -1,33 +1,10 @@
-from colorama import Style
 from faker import Faker
 from pathlib import Path
 from sys import maxsize
 
 from src.my_types import LogLevel, LogRecord
 from src.turbo_print import TurboPrint
-from src import filters, formatters, handlers
-
-
-class MyFormatter(formatters.BaseFormatter):
-    def format(self, record: LogRecord) -> str:
-        return record["message"]
-
-    def format_colored(self, record: LogRecord) -> str:
-        """Цветное форматирование записи."""
-        return (
-            record["level"].color
-            + "["
-            + record["timestamp"].strftime("%H:%M:%S")
-            + "]"
-            + record["name"]
-            + " | "
-            + record["level"].name
-            + "["
-            + str(record["level"].value)
-            + "]: "
-            + record["message"]
-            + Style.RESET_ALL
-        )
+from src import filters, formatters, handlers, inner_middlewares, outer_middlewares
 
 
 root_logger = TurboPrint.get_logger()
@@ -62,19 +39,14 @@ test_logger = TurboPrint(
     propagate=False,
 )
 test_logger.add_handler(
-    handlers.StreamHandler(
-        open(
-            "./logs/TEST.txt",
-            "a",
-            -1,
-            "utf-8",
-            newline="\n",
-        ),
-        False,
+    handlers.FileHandler(
+        Path("./logs/"),
+        "test_handler_{index}",
+        formatter=formatters.DefaultFormatter("{message}"),
     )
 )
+
 test_logger.add_handler(handlers.StreamHandler())
-test_logger.set_formatter(MyFormatter())
 # test_logger.level = LogLevel.LOG
 
 

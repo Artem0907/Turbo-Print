@@ -1,2 +1,5 @@
-colorama
-ujson
+aiofiles>=23.2.1
+aiogram>=3.0
+colorama>=0.4.6
+ujson>=5.8.0
+PyYAML>=6.0.1

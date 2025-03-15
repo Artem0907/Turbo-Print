@@ -4,15 +4,18 @@ from typing import ClassVar, Optional, Callable, Any, TextIO, TypeVar, Literal, 
 from datetime import datetime
 from asyncio import AbstractEventLoop, get_running_loop, get_event_loop
 from inspect import iscoroutinefunction
+from contextvars import ContextVar
 
 from colorama import Style
 
-from src.my_types import LogLevel, TurboPrintOutput, LogRecord
+from src.my_types import LogLevel, TurboPrintOutput, LogRecord, TurboPrintConfig
 from src.formatters import BaseFormatter, DefaultFormatter
 from src.filters import BaseFilter
 from src.handlers import BaseHandler, StreamHandler
+from src.inner_middlewares import BaseInnerMiddleware
+from src.outer_middlewares import BaseOuterMiddleware
 
-__all__ = ["TurboPrint"]
+__all__ = ["TurboPrint", "TurboPrintConfig"]
 ROOT_LOGGER_NAME = "root"
 _F = TypeVar("_F", bound=Callable[..., Any])
 try:
@@ -22,6 +25,7 @@ except RuntimeError:
 
 
 class TurboPrint:
+    _context: ContextVar[dict[str, Any]] = ContextVar("context", default={})
     _registry: ClassVar[dict[str, "TurboPrint"]] = {}
     _root_logger: ClassVar["TurboPrint"]
 
@@ -72,6 +76,8 @@ class TurboPrint:
         propagate: bool = True,
         handlers: Optional[list[BaseHandler]] = None,
         filters: Optional[list[BaseFilter]] = None,
+        inner_middlewares: Optional[list[BaseInnerMiddleware]] = None,
+        outer_middlewares: Optional[list[BaseOuterMiddleware]] = None,
         formatter: BaseFormatter = DefaultFormatter(),
         async_loop: AbstractEventLoop = _DEFAULT_ASYNC_LOOP,
         stderr: TextIO = sys.stderr,
@@ -91,6 +97,8 @@ class TurboPrint:
         self.parent = parent if parent else self._root_logger
         self.propagate = propagate
         self.handlers = handlers or []
+        self.inner_middlewares = inner_middlewares or []
+        self.outer_middlewares = outer_middlewares or []
         self.filters = (
             ((self.parent.get_filters() + filters) if self.parent else filters)
             if filters
@@ -120,18 +128,17 @@ class TurboPrint:
             prefix=self.prefix,
             timestamp=datetime.now(),
             parent=self.parent,
-            extra=kwargs,
+            extra={**self._context.get(), **kwargs},
         )
         if any(not f.filter(record) for f in self.get_filters()):
             return False
+
+        self.async_loop.run_until_complete(self._start_handlers(record))
 
         formatted = TurboPrintOutput(
             colored_console=self.formatter.format_colored(record),
             standard_file=self.formatter.format(record),
         )
-        self.record, self.formatted = record, formatted
-
-        self._start_handlers(record, formatted)
 
         if self.parent and self.propagate:
             self.parent._propagate(record)
@@ -150,28 +157,42 @@ class TurboPrint:
         new_record["parent"] = self.parent
 
         if self.level <= new_record["level"]:
-            formatted = TurboPrintOutput(
-                colored_console=self.formatter.format_colored(new_record),
-                standard_file=self.formatter.format(new_record),
-            )
-            self._start_handlers(new_record, formatted)
+            self.async_loop.run_until_complete(self._start_handlers(new_record))
 
         if self.parent and self.propagate:
             self.parent._propagate(new_record)
 
-    def _start_handlers(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
+    async def _start_handlers(self, record: LogRecord) -> None:
         """Запуск обработчиков с обработкой ошибок."""
         for handler in self.get_handlers():
             try:
-                if iscoroutinefunction(handler.handle):
-                    self.async_loop.run_until_complete(
-                        handler.handle(record, formatted, self.stdout, self.stderr)
+                for inner_middleware in self.inner_middlewares:
+                    await inner_middleware(
+                        handler, self, record, self.stdout, self.stderr
                     )
+
+                if iscoroutinefunction(handler.handle):
+                    await handler.handle(self, record, self.stdout, self.stderr)
                 else:
-                    handler.handle(record, formatted, self.stdout, self.stderr)
+                    handler.handle(self, record, self.stdout, self.stderr)
+
+                for outer_middleware in self.outer_middlewares:
+                    await outer_middleware(
+                        handler, self, record, self.stdout, self.stderr
+                    )
             except Exception as e:
                 self.stderr.write(f"Ошибка обработчика {handler}: {e}")
                 self.stderr.flush()
+
+    def set_context(self, **kwargs: Any) -> None:
+        """Устанавливает контекст для логгера."""
+        self._context.set(kwargs)
+
+    def get_level(self) -> LogLevel:
+        return self.level
+
+    def set_level(self, level: LogLevel) -> None:
+        self.level = level
 
     def get_filters(self) -> list[BaseFilter]:
         """Получение списка фильтров."""

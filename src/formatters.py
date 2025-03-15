@@ -47,13 +47,13 @@ class DefaultFormatter(BaseFormatter):
         """Основное форматирование сообщения."""
         data = {
             "time": record["timestamp"].strftime("%H:%M:%S"),
+            "name": record["name"],
             "prefix": record["prefix"] or record["name"],
             "level_name": record["level"].name,
             "level_value": record["level"].value,
-            "message": record["message"],
             **record["extra"],
         }
-        return self._fmt.format(**data)
+        return self._fmt.format(**data, message=record["message"].format(**data))
 
     def format_colored(self, record: LogRecord) -> str:
         """Добавление цветовой подсветки к сообщению."""
@@ -147,6 +147,7 @@ class HTMLFormatter(BaseFormatter):
             + "".join(f"<p><b>{k}:</b> {v}</p>" for k, v in log_data.items())
             + "</div>"
         )
+
 
 class MarkdownFormatter(BaseFormatter):
     """Форматтер для формирования Markdown-строки."""

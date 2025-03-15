@@ -3,6 +3,9 @@ from datetime import datetime
 from enum import IntEnum
 from typing import Optional, TypedDict, TYPE_CHECKING, Any
 from functools import cached_property
+from ujson import load as json_load
+from pathlib import Path
+from yaml import safe_load as yaml_safe_load
 
 if TYPE_CHECKING:
     from src.turbo_print import TurboPrint
@@ -58,3 +61,31 @@ class LogRecord(TypedDict):
     timestamp: datetime
     parent: Optional["TurboPrint"]  # Используем аннотацию
     extra: dict[str, Any]
+
+
+class TurboPrintConfig:
+    """Класс для загрузки конфигурации логгера."""
+
+    @staticmethod
+    def from_json(file_path: Path) -> dict[str, Any]:
+        """Загружает конфигурацию из JSON файла."""
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json_load(f)
+
+    @staticmethod
+    def from_yaml(file_path: Path) -> dict[str, Any]:
+        """Загружает конфигурацию из YAML файла."""
+        with open(file_path, "r", encoding="utf-8") as f:
+            return yaml_safe_load(f)
+
+    @staticmethod
+    def configure_from_file(file_path: Path) -> "TurboPrint":
+        """Создаёт логгер на основе конфигурации из файла."""
+        if file_path.suffix == ".json":
+            config = TurboPrintConfig.from_json(file_path)
+        elif file_path.suffix in (".yaml", ".yml"):
+            config = TurboPrintConfig.from_yaml(file_path)
+        else:
+            raise ValueError("Неподдерживаемый формат файла")
+
+        return TurboPrint(**config)

@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from datetime import time
 from re import compile
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, Literal
 
 from src.my_types import LogRecord, LogLevel
 
@@ -98,3 +98,30 @@ class TimeFilter(BaseFilter):
         if self.start <= self.end:
             return self.start <= log_time <= self.end
         return log_time >= self.start or log_time <= self.end
+
+
+class ModuleFilter(BaseFilter):
+    """Фильтрация записей по имени модуля."""
+
+    def __init__(self, module_name: str) -> None:
+        self.module_name = module_name
+
+    def filter(self, record: LogRecord) -> bool:
+        return record["name"] == self.module_name
+
+
+class CompositeFilter(BaseFilter):
+    """Комбинирование фильтров через логические операции."""
+
+    def __init__(
+        self, filters: list[BaseFilter], mode: Literal["AND", "OR"] = "AND"
+    ) -> None:
+        self.filters = filters
+        self.mode = mode
+
+    def filter(self, record: LogRecord) -> bool:
+        if self.mode == "AND":
+            return all(f.filter(record) for f in self.filters)
+        elif self.mode == "OR":
+            return any(f.filter(record) for f in self.filters)
+        return False
