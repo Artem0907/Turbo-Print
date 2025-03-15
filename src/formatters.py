@@ -4,10 +4,13 @@ from colorama import Style
 from yaml import dump as yaml_dump
 from ujson import dumps as json_dump
 from csv import DictWriter
+from typing import Optional
+from string import Formatter
 
 from src.my_types import LogRecord
+from src.localization import Localization
 
-__all__ = ["BaseFormatter", "DefaultFormatter", "JSONFormatter"]
+__all__ = ["BaseFormatter", "DefaultFormatter", "JSONFormatter", "XMLFormatter", "YAMLFormatter", "CSVFormatter", "HTMLFormatter", "MarkdownFormatter"]
 
 
 class BaseFormatter(ABC):
@@ -24,32 +27,24 @@ class BaseFormatter(ABC):
 
 
 class DefaultFormatter(BaseFormatter):
-    """Форматтер по умолчанию с поддержкой цветов.
+    """Форматтер по умолчанию с поддержкой локализации."""
 
-    Пример:
-    >>> formatter = DefaultFormatter()
-    >>> record = LogRecord(message="Test", level=LogLevel.INFO, ...)
-    >>> formatted = formatter.format(record)
-    >>> "[12:34:56] root | INFO[20]: Test" in formatted
-    True
-    """
-
-    def __init__(
-        self, fmt: str = "[{time}] {prefix} | {level_name}[{level_value}]: {message}"
-    ) -> None:
+    def __init__(self, fmt: str = "[{time}] {prefix} | {level_name}[{level_value}]: {message}", localization: Optional[Localization] = None) -> None:
         """
         Args:
-            fmt (str): Шаблон форматирования
+            fmt (str): Шаблон форматирования.
+            localization (Optional[Localization]): Локализация.
         """
         self._fmt = fmt
+        self.localization = localization or Localization()
 
     def format(self, record: LogRecord) -> str:
         """Основное форматирование сообщения."""
         data = {
-            "time": record["timestamp"].strftime("%H:%M:%S"),
+            "time": self.localization.format_datetime(record["timestamp"]),
             "name": record["name"],
             "prefix": record["prefix"] or record["name"],
-            "level_name": record["level"].name,
+            "level_name": self.localization.translate(record["level"].name.lower()),
             "level_value": record["level"].value,
             **record["extra"],
         }
@@ -163,3 +158,29 @@ class MarkdownFormatter(BaseFormatter):
             "parent": repr(record["parent"]),
         }
         return "\n".join(f"**{k}:** {v}" for k, v in log_data.items())
+    
+class CustomFormatter(BaseFormatter):
+    """Форматтер для создания пользовательских форматов логов."""
+
+    def __init__(self, fmt: str, macros: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Args:
+            fmt (str): Шаблон форматирования.
+            macros (Optional[Dict[str, Any]]): Пользовательские макросы.
+        """
+        self._fmt = fmt
+        self._macros = macros or {}
+
+    def format(self, record: LogRecord) -> str:
+        """Форматирование записи с использованием пользовательского шаблона и макросов."""
+        formatter = Formatter()
+        data = {
+            "time": record["timestamp"].strftime("%H:%M:%S"),
+            "name": record["name"],
+            "prefix": record["prefix"] or record["name"],
+            "level_name": record["level"].name,
+            "level_value": record["level"].value,
+            **record["extra"],
+            **self._macros,  # Добавляем пользовательские макросы
+        }
+        return formatter.format(self._fmt, **data)

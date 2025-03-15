@@ -29,24 +29,50 @@ class LogLevel(IntEnum):
     """Уровни логирования с цветовым оформлением."""
 
     NOTSET = 0
+    TRACE = 5
     DEBUG = 10
     INFO = 20
+    NOTICE = 25
     SUCCESS = 30
     WARNING = 40
     ERROR = 50
     CRITICAL = 60
+    SECURITY = 70
+    
+    @classmethod
+    def add_custom_level(cls, name: str, value: int, color: str) -> "LogLevel":
+        """
+        Добавляет кастомный уровень логирования.
+
+        Args:
+            name (str): Имя уровня.
+            value (int): Значение уровня.
+            color (str): Цвет для отображения в консоли.
+
+        Returns:
+            LogLevel: Новый уровень логирования.
+        """
+        if name in cls._member_names_:
+            raise ValueError(f"Уровень {name} уже существует")
+
+        new_level = IntEnum(name, {name: value}, type=LogLevel)
+        new_level.color = color
+        return new_level
 
     @cached_property
     def color(self) -> str:
         """Цветовое представление уровня для консоли."""
         colors = {
             LogLevel.NOTSET: Fore.WHITE,
+            LogLevel.TRACE: Fore.CYAN + Style.DIM,
             LogLevel.DEBUG: Fore.CYAN,
             LogLevel.INFO: Fore.BLUE,
+            LogLevel.NOTICE: Fore.GREEN + Style.BRIGHT,
             LogLevel.SUCCESS: Fore.GREEN,
             LogLevel.WARNING: Fore.YELLOW,
             LogLevel.ERROR: Fore.RED,
             LogLevel.CRITICAL: Fore.MAGENTA + Style.BRIGHT,
+            LogLevel.SECURITY: Fore.RED + Style.BRIGHT,
         }
         return colors[self]
 
@@ -61,6 +87,8 @@ class LogRecord(TypedDict):
     timestamp: datetime
     parent: Optional["TurboPrint"]  # Используем аннотацию
     extra: dict[str, Any]
+    tags: list[str]
+    category: Optional[str]
 
 
 class TurboPrintConfig:

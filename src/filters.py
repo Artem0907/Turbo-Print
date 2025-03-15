@@ -30,21 +30,17 @@ class BaseFilter(metaclass=ABCMeta):
 
 
 class LevelFilter(BaseFilter):
-    """Фильтр по минимальному уровню логирования."""
+    """Фильтр по уровню логирования."""
 
     def __init__(self, level: LogLevel) -> None:
         """
         Args:
-            level (LogLevel): Минимальный уровень для фильтрации
+            level (LogLevel): Минимальный уровень для фильтрации.
         """
         self.level = level
 
     def filter(self, record: LogRecord) -> bool:
-        """Применить фильтр по уровню логирования.
-
-        Returns:
-            bool: True если уровень записи >= установленного уровня
-        """
+        """Применить фильтр по уровню логирования."""
         return record["level"] >= self.level
 
 
@@ -125,3 +121,38 @@ class CompositeFilter(BaseFilter):
         elif self.mode == "OR":
             return any(f.filter(record) for f in self.filters)
         return False
+
+
+class TagFilter(BaseFilter):
+    """Фильтр по тегам."""
+
+    def __init__(self, tags: list[str], match_all: bool = True) -> None:
+        """
+        Args:
+            tags (List[str]): Список тегов для фильтрации.
+            match_all (bool): Если True, все теги должны совпадать. Если False, достаточно одного совпадения.
+        """
+        self.tags = tags
+        self.match_all = match_all
+
+    def filter(self, record: LogRecord) -> bool:
+        """Фильтрация по тегам."""
+        if self.match_all:
+            return all(tag in record["tags"] for tag in self.tags)
+        else:
+            return any(tag in record["tags"] for tag in self.tags)
+
+
+class CategoryFilter(BaseFilter):
+    """Фильтр по категории."""
+
+    def __init__(self, category: str) -> None:
+        """
+        Args:
+            category (str): Категория для фильтрации.
+        """
+        self.category = category
+
+    def filter(self, record: LogRecord) -> bool:
+        """Фильтрация по категории."""
+        return record["category"] == self.category

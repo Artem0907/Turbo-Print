@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Coroutine, Literal, Optional, TextIO
 import aiofiles
 import aiofiles.os
+from pymongo import MongoClient
 
+from src.compression import Compression
 from src.filters import BaseFilter
 from src.formatters import BaseFormatter
 from src.my_types import LogRecord
@@ -34,7 +36,7 @@ class BaseHandler(ABC):
         self.formatter = formatter
 
     @abstractmethod
-    def handle(
+    async def handle(
         self,
         logger: "TurboPrint",
         record: LogRecord,
@@ -44,6 +46,55 @@ class BaseHandler(ABC):
         """Обработка форматированной записи."""
         raise NotImplementedError
 
+
+class DatabaseHandler(BaseHandler):
+    """Обработчик для записи логов в базу данных."""
+
+    def __init__(
+        self,
+        connection_string: str,
+        database: str,
+        collection: str,
+        filters: Optional[list[BaseFilter]] = None,
+        formatter: Optional[BaseFormatter] = None,
+    ) -> None:
+        """
+        Args:
+            connection_string (str): Строка подключения к базе данных.
+            database (str): Имя базы данных.
+            collection (str): Имя коллекции.
+        """
+        self.filters = filters or []
+        self.formatter = formatter
+        self.client = MongoClient(connection_string)
+        self.db = self.client[database]
+        self.collection = self.db[collection]
+
+    async def handle(
+        self,
+        logger: "TurboPrint",
+        record: LogRecord,
+        stdout: TextIO,
+        stderr: TextIO,
+    ) -> bool:
+        """Запись лога в базу данных."""
+        if not all(map(lambda filter: filter.filter(record), self.filters)):
+            return False
+
+        log_data = {
+            "message": record["message"],
+            "level": record["level"].name,
+            "timestamp": record["timestamp"].isoformat(),
+            **record["extra"],
+        }
+
+        try:
+            self.collection.insert_one(log_data)
+            return True
+        except Exception as e:
+            stderr.write(f"Ошибка записи в базу данных: {str(e)}")
+            stderr.flush()
+            return False
 
 class StreamHandler(BaseHandler):
     """Вывод в консоль с поддержкой цветов."""
@@ -65,7 +116,7 @@ class StreamHandler(BaseHandler):
         self.stream = stream
         self.use_colors = use_colors
 
-    def handle(
+    async def handle(
         self,
         logger: "TurboPrint",
         record: LogRecord,
@@ -89,7 +140,7 @@ class StreamHandler(BaseHandler):
 
 
 class TimedRotatingFileHandler(BaseHandler):
-    """Обработчик для ротации файлов по времени."""
+    """Обработчик для ротации файлов по времени с поддержкой сжатия."""
 
     def __init__(
         self,
@@ -100,6 +151,8 @@ class TimedRotatingFileHandler(BaseHandler):
         backup_count: int = 5,
         filters: Optional[list[BaseFilter]] = None,
         formatter: Optional[BaseFormatter] = None,
+        compress: bool = False,  # Включить сжатие
+        compress_format: Literal["gzip", "zip"] = "gzip",  # Формат сжатия
     ) -> None:
         """
         Args:
@@ -108,6 +161,8 @@ class TimedRotatingFileHandler(BaseHandler):
             when (str): Интервал ротации (S - секунды, M - минуты, H - часы, D - дни, midnight - полночь).
             interval (int): Количество интервалов между ротациями.
             backup_count (int): Максимальное количество файлов для хранения.
+            compress (bool): Включить сжатие файлов.
+            compress_format (Literal["gzip", "zip"]): Формат сжатия.
         """
         self.filters = filters or []
         self.formatter = formatter
@@ -119,6 +174,25 @@ class TimedRotatingFileHandler(BaseHandler):
         self._lock = Lock()
         self.current_file = self._get_current_file()
         self.next_rotation = self._calculate_next_rotation()
+        self.compress = compress
+        self.compress_format = compress_format
+
+    async def _rotate(self) -> None:
+        """Ротирует файлы логов с возможностью сжатия."""
+        files = sorted(
+            self.file_directory.glob("*.log"),
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
+        for file in files[self.backup_count :]:
+            if self.compress:
+                compressed_file = file.with_suffix(f".{self.compress_format}")
+                if self.compress_format == "gzip":
+                    await Compression.compress_gzip(file, compressed_file)
+                elif self.compress_format == "zip":
+                    await Compression.compress_zip(file, compressed_file)
+            else:
+                await aiofiles.os.remove(file)
 
     def _calculate_next_rotation(self) -> datetime:
         """Вычисляет время следующей ротации."""
@@ -143,6 +217,46 @@ class TimedRotatingFileHandler(BaseHandler):
         filename = self.file_name.format(time=timestamp)
         return self.file_directory / f"{filename}.log"
 
+
+class SizeRotatingFileHandler(BaseHandler):
+    """Обработчик для ротации файлов по размеру."""
+
+    def __init__(
+        self,
+        file_directory: Path,
+        file_name: str = "log_{index}",
+        max_size: int = 10 * 1024 * 1024,  # 10 MB
+        backup_count: int = 5,
+        filters: Optional[list[BaseFilter]] = None,
+        formatter: Optional[BaseFormatter] = None,
+    ) -> None:
+        """
+        Args:
+            file_directory (Path): Директория для хранения логов.
+            file_name (str): Шаблон имени файла (поддерживает {index}).
+            max_size (int): Максимальный размер файла в байтах.
+            backup_count (int): Максимальное количество файлов для хранения.
+        """
+        self.filters = filters or []
+        self.formatter = formatter
+        self.file_directory = file_directory
+        self.file_name = file_name
+        self.max_size = max_size
+        self.backup_count = backup_count
+        self._lock = Lock()
+        self.current_file = self._get_current_file()
+
+    def _get_current_file(self) -> Path:
+        """Возвращает текущий файл для записи."""
+        self.file_directory.mkdir(parents=True, exist_ok=True)
+        index = 1
+        while True:
+            filename = self.file_name.format(index=index)
+            candidate = self.file_directory / f"{filename}.log"
+            if not candidate.exists():
+                return candidate
+            index += 1
+
     async def _rotate(self) -> None:
         """Ротирует файлы логов."""
         files = sorted(
@@ -160,13 +274,12 @@ class TimedRotatingFileHandler(BaseHandler):
         stdout: TextIO,
         stderr: TextIO,
     ) -> bool:
-        """Запись в файл с ротацией по времени."""
+        """Запись в файл с ротацией по размеру."""
         if not all(map(lambda filter: filter.filter(record), self.filters)):
             return False
         async with self._lock:
-            if datetime.now() >= self.next_rotation:
+            if self.current_file.stat().st_size >= self.max_size:
                 self.current_file = self._get_current_file()
-                self.next_rotation = self._calculate_next_rotation()
                 await self._rotate()
 
             try:

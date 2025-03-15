@@ -1,19 +1,34 @@
-from functools import wraps
-import sys
-from typing import ClassVar, Optional, Callable, Any, TextIO, TypeVar, Literal, cast
-from datetime import datetime
-from asyncio import AbstractEventLoop, get_running_loop, get_event_loop
-from inspect import iscoroutinefunction
+from asyncio import (
+    AbstractEventLoop,
+    get_running_loop,
+    get_event_loop,
+    iscoroutinefunction,
+)
+from contextlib import contextmanager
 from contextvars import ContextVar
+from datetime import datetime
+from dotenv import load_dotenv
+from functools import wraps
+from logging import Logger
+from pathlib import Path
+from time import time
+from traceback import format_exc
+from typing import ClassVar, Optional, Callable, Any, TextIO, TypeVar, cast
+import sys
 
-from colorama import Style
 
-from src.my_types import LogLevel, TurboPrintOutput, LogRecord, TurboPrintConfig
-from src.formatters import BaseFormatter, DefaultFormatter
+from config_loader import ConfigLoader
+from src import formatters, handlers, filters
 from src.filters import BaseFilter
+from src.formatters import BaseFormatter, DefaultFormatter
 from src.handlers import BaseHandler, StreamHandler
 from src.inner_middlewares import BaseInnerMiddleware
+from src.localization import Localization
+from src.metrics import Metrics
+from src.migration import LoggingAdapter
+from src.my_types import LogLevel, TurboPrintOutput, LogRecord, TurboPrintConfig
 from src.outer_middlewares import BaseOuterMiddleware
+from src.realtime import RealTimeLogger
 
 __all__ = ["TurboPrint", "TurboPrintConfig"]
 ROOT_LOGGER_NAME = "root"
@@ -22,6 +37,9 @@ try:
     _DEFAULT_ASYNC_LOOP = get_running_loop()
 except RuntimeError:
     _DEFAULT_ASYNC_LOOP = get_event_loop()
+
+# Загрузка переменных окружения из .env файла
+load_dotenv()
 
 
 class TurboPrint:
@@ -65,6 +83,13 @@ class TurboPrint:
 
         return cls(name=name, parent=cls._root_logger, **kwargs)
 
+    @staticmethod
+    def from_logging(logger: Logger) -> "TurboPrint":
+        """Создает логгер TurboPrint на основе логгера logging."""
+        adapter = LoggingAdapter()
+        adapter.migrate_logger(logger)
+        return adapter.logger
+
     def __init__(
         self,
         name: Optional[str] = None,
@@ -82,6 +107,12 @@ class TurboPrint:
         async_loop: AbstractEventLoop = _DEFAULT_ASYNC_LOOP,
         stderr: TextIO = sys.stderr,
         stdout: TextIO = sys.stdout,
+        inherit_filters: bool = True,
+        inherit_handlers: bool = True,
+        inherit_formatter: bool = True,
+        metrics: Optional[Metrics] = None,
+        localization: Optional[Localization] = None,
+        realtime_logger: Optional[RealTimeLogger] = None,
     ) -> None:
         """Инициализация логгера."""
         if not hasattr(TurboPrint, "_root_logger"):
@@ -99,13 +130,17 @@ class TurboPrint:
         self.handlers = handlers or []
         self.inner_middlewares = inner_middlewares or []
         self.outer_middlewares = outer_middlewares or []
-        self.filters = (
-            ((self.parent.get_filters() + filters) if self.parent else filters)
-            if filters
-            else []
-        )
+        self._logger_filters = filters or []
         self.formatter = formatter
         self._children: list[TurboPrint] = []
+        self.inherit_filters = inherit_filters
+        self.inherit_handlers = inherit_handlers
+        self.inherit_formatter = inherit_formatter
+        self.metrics = metrics
+        self._tags: list[str] = []
+        self._category: Optional[str] = None
+        self.localization = localization or Localization()
+        self.realtime_logger = realtime_logger
 
         if self.name in TurboPrint._registry:
             stderr.write(f"ValueError: Логгер '{self.name}' уже существует" + "\n")
@@ -121,23 +156,39 @@ class TurboPrint:
         if not self.enabled or level < self.level:
             return False
 
+        localized_message = self.localization.translate(message)
+
         record = LogRecord(
-            message=message,
+            message=localized_message,
             name=self.name,
             level=level,
             prefix=self.prefix,
             timestamp=datetime.now(),
             parent=self.parent,
             extra={**self._context.get(), **kwargs},
+            tags=self._tags.copy(),
+            category=self._category,
         )
+
+        # Применяем фильтры на уровне логгера
         if any(not f.filter(record) for f in self.get_filters()):
             return False
+
+        if self.realtime_logger:
+            self.realtime_logger.log(
+                {
+                    "message": message,
+                    "level": record["level"].name,
+                    "timestamp": record["timestamp"].isoformat(),
+                    **record["extra"],
+                }
+            )
 
         self.async_loop.run_until_complete(self._start_handlers(record))
 
         formatted = TurboPrintOutput(
-            colored_console=self.formatter.format_colored(record),
-            standard_file=self.formatter.format(record),
+            colored_console=self.get_formatter().format_colored(record),
+            standard_file=self.get_formatter().format(record),
         )
 
         if self.parent and self.propagate:
@@ -164,84 +215,263 @@ class TurboPrint:
 
     async def _start_handlers(self, record: LogRecord) -> None:
         """Запуск обработчиков с обработкой ошибок."""
-        for handler in self.get_handlers():
-            try:
-                for inner_middleware in self.inner_middlewares:
-                    await inner_middleware(
-                        handler, self, record, self.stdout, self.stderr
-                    )
-
-                if iscoroutinefunction(handler.handle):
+        start_time = datetime.now()
+        try:
+            for handler in self.get_handlers():
+                try:
+                    for inner_middleware in self.inner_middlewares:
+                        await inner_middleware(
+                            handler, self, record, self.stdout, self.stderr
+                        )
                     await handler.handle(self, record, self.stdout, self.stderr)
-                else:
-                    handler.handle(self, record, self.stdout, self.stderr)
-
-                for outer_middleware in self.outer_middlewares:
-                    await outer_middleware(
-                        handler, self, record, self.stdout, self.stderr
-                    )
-            except Exception as e:
-                self.stderr.write(f"Ошибка обработчика {handler}: {e}")
-                self.stderr.flush()
+                    for outer_middleware in self.outer_middlewares:
+                        await outer_middleware(
+                            handler, self, record, self.stdout, self.stderr
+                        )
+                except Exception as e:
+                    self.stderr.write(f"Ошибка обработчика {handler}: {e}")
+                    self.stderr.flush()
+                    if self.metrics:
+                        self.metrics.error_occurred()
+        finally:
+            if self.metrics:
+                processing_time = (datetime.now() - start_time).total_seconds()
+                self.metrics.log_processed(record["level"].name, processing_time)
 
     def set_context(self, **kwargs: Any) -> None:
         """Устанавливает контекст для логгера."""
         self._context.set(kwargs)
 
+    def add_custom_level(self, name: str, value: int, color: str) -> LogLevel:
+        """Добавляет кастомный уровень логирования."""
+        return LogLevel.add_custom_level(name, value, color)
+
     def get_level(self) -> LogLevel:
         return self.level
 
     def set_level(self, level: LogLevel) -> None:
+        """Устанавливает уровень логирования."""
         self.level = level
 
-    def get_filters(self) -> list[BaseFilter]:
-        """Получение списка фильтров."""
-        return self.parent.get_filters() + self.filters if self.parent else self.filters
-
-    def add_filter(self, filter: BaseFilter) -> None:
-        """Добавление фильтра."""
-        self.filters.append(filter)
-
     def add_handler(self, handler: BaseHandler) -> None:
-        """Добавление обработчика."""
+        """Добавляет обработчик."""
         self.handlers.append(handler)
 
     def get_handlers(self) -> list[BaseHandler]:
-        """Получение списка обработчиков."""
-        return (
-            self.parent.get_handlers() + self.handlers
-            if self.parent and self.propagate
-            else self.handlers
-        )
+        return self.handlers
+
+    def remove_handler(self, handler: BaseHandler) -> None:
+        """Удаляет обработчик."""
+        self.handlers.remove(handler)
 
     def set_formatter(self, formatter: BaseFormatter) -> None:
-        """Изменение форматировщика."""
+        """Устанавливает форматтер."""
         self.formatter = formatter
 
-    def exception(self, **log_params: Any) -> Callable[[_F], _F]:
-        """Декоратор для логирования исключений."""
+    def get_formatter(self) -> BaseFormatter:
+        return self.formatter
 
-        def get_func(func: _F) -> _F:
-            @wraps(func)
-            def wrapper(*args: Any, **kwargs: Any) -> Any:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as exception:
-                    exc_name = exception.__class__.__name__
-                    exc_file = f"{func.__code__.co_filename.replace("\\", "/")}:{func.__code__.co_firstlineno}"
-                    exception_message = f'Исключение {exc_name} в "{exc_file}" [{func.__name__}]: {str(exception)}'
-                    self(exception_message, LogLevel.CRITICAL, **log_params)
-                    self.stderr.write(
-                        LogLevel.CRITICAL.color + exception_message + Style.RESET_ALL
+    def add_filter(self, filter: BaseFilter) -> None:
+        """Добавляет фильтр."""
+        self._logger_filters.append(filter)
+
+    def add_tag(self, tag: str) -> None:
+        """Добавляет тег к логгеру."""
+        self._tags.append(tag)
+
+    def remove_tag(self, tag: str) -> None:
+        """Удаляет тег из логгера."""
+        self._tags.remove(tag)
+
+    def set_category(self, category: str) -> None:
+        """Устанавливает категорию для логгера."""
+        self._category = category
+
+    def get_filters(self) -> list[BaseFilter]:
+        return self._logger_filters + self.parent.get_filters()
+
+    def remove_filter(self, filter: BaseFilter) -> None:
+        """Удаляет фильтр."""
+        self._logger_filters.remove(filter)
+
+    def update_config(self, config: dict[str, Any]) -> None:
+        """Обновляет конфигурацию логгера на лету."""
+        if "level" in config:
+            self.set_level(LogLevel[config["level"]])
+
+        if "formatter" in config:
+            formatter_config = config["formatter"]
+            formatter_type = formatter_config.get("type", "default")
+            if formatter_type == "json":
+                self.set_formatter(formatters.JSONFormatter())
+            elif formatter_type == "xml":
+                self.set_formatter(formatters.XMLFormatter())
+            elif formatter_type == "yaml":
+                self.set_formatter(formatters.YAMLFormatter())
+            elif formatter_type == "csv":
+                self.set_formatter(formatters.CSVFormatter())
+            elif formatter_type == "html":
+                self.set_formatter(formatters.HTMLFormatter())
+            elif formatter_type == "markdown":
+                self.set_formatter(formatters.MarkdownFormatter())
+            else:
+                self.set_formatter(formatters.DefaultFormatter())
+
+        if "handlers" in config:
+            for handler_config in config["handlers"]:
+                handler_type = handler_config.get("type")
+                if handler_type == "stream":
+                    self.add_handler(handlers.StreamHandler())
+                elif handler_type == "file":
+                    self.add_handler(
+                        handlers.FileHandler(
+                            Path(handler_config.get("file_directory", "logs"))
+                        )
                     )
-                    exit(1)
+                elif handler_type == "timed_rotating_file":
+                    self.add_handler(
+                        handlers.TimedRotatingFileHandler(
+                            Path(handler_config.get("file_directory", "logs")),
+                            when=handler_config.get("when", "D"),
+                            interval=handler_config.get("interval", 1),
+                            backup_count=handler_config.get("backup_count", 5),
+                            compress=handler_config.get("compress", False),
+                            compress_format=handler_config.get(
+                                "compress_format", "gzip"
+                            ),
+                        )
+                    )
+                elif handler_type == "size_rotating_file":
+                    self.add_handler(
+                        handlers.SizeRotatingFileHandler(
+                            Path(handler_config.get("file_directory", "logs")),
+                            max_size=handler_config.get(
+                                "max_size", 10 * 1024 * 1024
+                            ),  # 10 MB
+                            backup_count=handler_config.get("backup_count", 5),
+                        )
+                    )
 
-            return cast(_F, wrapper)
+        if "filters" in config:
+            for filter_config in config["filters"]:
+                filter_type = filter_config.get("type")
+                if filter_type == "level":
+                    self.add_filter(
+                        filters.LevelFilter(LogLevel[filter_config.get("level")])
+                    )
+                elif filter_type == "regex":
+                    self.add_filter(filters.RegexFilter(filter_config.get("pattern")))
+                elif filter_type == "time":
+                    self.add_filter(
+                        filters.TimeFilter(
+                            start_time=filter_config.get("start_time"),
+                            end_time=filter_config.get("end_time"),
+                        )
+                    )
+                elif filter_type == "module":
+                    self.add_filter(
+                        filters.ModuleFilter(filter_config.get("module_name"))
+                    )
+                elif filter_type == "composite":
+                    self.add_filter(
+                        filters.CompositeFilter(
+                            filters=[
+                                ConfigLoader._create_filter(f)
+                                for f in filter_config.get("filters", [])
+                            ],
+                            mode=filter_config.get("mode", "AND"),
+                        )
+                    )
 
-        return get_func
+    def exception(
+        self,
+        message: str,
+        exception: Optional[Exception] = None,
+        level: LogLevel = LogLevel.ERROR,
+        **kwargs: Any,
+    ) -> None:
+        """Логирует исключение с дополнительной информацией."""
+        stack_trace = format_exc() if exception else None
+        self(
+            f"Исключение: {message}",
+            level,
+            stack_trace=stack_trace,
+            exception_type=exception.__class__.__name__ if exception else None,
+            **kwargs,
+        )
+
+    @contextmanager
+    def catch_exceptions(
+        self,
+        message: str,
+        level: LogLevel = LogLevel.ERROR,
+        **kwargs: Any,
+    ):
+        """
+        Контекстный менеджер для автоматического логирования исключений.
+
+        Args:
+            message (str): Сообщение для логирования.
+            level (LogLevel): Уровень логирования (по умолчанию ERROR).
+            **kwargs: Дополнительные данные для логирования.
+        """
+        try:
+            yield
+        except Exception as e:
+            self.exception(message, e, level, **kwargs)
+            raise
+
+    @contextmanager
+    def context(
+        self,
+        message: str,
+        level: LogLevel = LogLevel.INFO,
+        start_message: Optional[str] = None,
+        end_message: Optional[str] = None,
+    ):
+        """
+        Контекстный менеджер для логирования начала и завершения блока кода.
+
+        Args:
+            message (str): Основное сообщение для логирования.
+            level (LogLevel): Уровень логирования (по умолчанию INFO).
+            start_message (Optional[str]): Сообщение в начале блока. Если None, используется message.
+            end_message (Optional[str]): Сообщение в конце блока. Если None, используется message.
+        """
+        start_msg = start_message or f"Начало: {message}"
+        end_msg = end_message or f"Завершение: {message}"
+
+        self(start_msg, level)
+        try:
+            yield
+        except Exception as e:
+            self(f"Ошибка в блоке: {message} - {str(e)}", LogLevel.ERROR)
+            raise
+        finally:
+            self(end_msg, level)
 
     def __repr__(self) -> str:
         return f"<class 'turbo_print.{self.__class__.__module__}.{self.__class__.__name__}[{self.name}]'>"
 
     def __str__(self) -> str:
         return self.name
+
+
+def performance_metrics(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        start_time = time()
+        if iscoroutinefunction(func):
+            result = await func(*args, **kwargs)
+        else:
+            result = func(*args, **kwargs)
+        end_time = time()
+        execution_time = end_time - start_time
+        logger = TurboPrint.get_logger("performance")
+        logger(
+            f"Метод {func.__name__} выполнен за {execution_time:.4f} секунд",
+            LogLevel.INFO,
+        )
+        return result
+
+    return wrapper

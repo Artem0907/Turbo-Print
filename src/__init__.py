@@ -33,21 +33,33 @@ TurboPrint - мощная и гибкая система логирования 
 """
 
 from . import (
+    compression,
+    exceptions,
     filters,
     formatters,
     handlers,
-    my_types,
-    turbo_print,
     inner_middlewares,
+    localization,
+    metrics,
+    migration,
+    my_types,
     outer_middlewares,
+    realtime,
+    turbo_print,
 )
 
 __all__ = [
+    "compression",
+    "exceptions",
     "filters",
     "formatters",
     "handlers",
-    "my_types",
-    "turbo_print",
     "inner_middlewares",
+    "localization",
+    "metrics",
+    "migration",
+    "my_types",
     "outer_middlewares",
+    "realtime",
+    "turbo_print",
 ]
