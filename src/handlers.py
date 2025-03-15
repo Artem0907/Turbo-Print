@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
-from sys import stdout
-from typing import Optional, TextIO
-from threading import Lock
+from typing import Any, Coroutine, Optional, TextIO
+from asyncio import Lock, get_event_loop
 from aiogram import Bot
-from asyncio import get_running_loop, run_coroutine_threadsafe
+import aiofiles
+import aiofiles.os
 
 from src.my_types import LogRecord, TurboPrintOutput
 
@@ -16,7 +17,13 @@ class BaseHandler(ABC):
     """Базовый класс обработчиков логов."""
 
     @abstractmethod
-    def handle(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
+    def handle(
+        self,
+        record: LogRecord,
+        formatted: TurboPrintOutput,
+        stdout: TextIO,
+        stderr: TextIO,
+    ) -> Coroutine[Any, Any, None] | None:
         """Обработка форматированной записи."""
         raise NotImplementedError
 
@@ -32,15 +39,25 @@ class StreamHandler(BaseHandler):
             stream (Optional[TextIO]): Выходной поток
             use_colors (bool): Использовать цветное форматирование
         """
-        self.stream = stream or stdout
+        self.stream = stream
         self.use_colors = use_colors
 
-    def handle(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
+    def handle(
+        self,
+        record: LogRecord,
+        formatted: TurboPrintOutput,
+        stdout: TextIO,
+        stderr: TextIO,
+    ) -> None:
         message = formatted[
             "colored_console" if self.use_colors else "standard_file"
         ].strip()
-        self.stream.write(message + "\n")
-        self.stream.flush()
+        if self.stream:
+            self.stream.write(message + "\n")
+            self.stream.flush()
+        else:
+            stdout.write(message + "\n")
+            stdout.flush()
 
 
 class FileHandler(BaseHandler):
@@ -67,11 +84,19 @@ class FileHandler(BaseHandler):
         self.max_size = max_size
         self.max_lines = max_lines
         self._lock = Lock()
-        self.current_file = self._get_current_file()
+        self.current_file = get_event_loop().run_until_complete(
+            self._get_current_file()
+        )
 
-    def handle(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
+    async def handle(
+        self,
+        record: LogRecord,
+        formatted: TurboPrintOutput,
+        stdout: TextIO,
+        stderr: TextIO,
+    ) -> None:
         """Запись в файл."""
-        with self._lock:
+        async with self._lock:
             if self.max_lines:
                 if (
                     self.current_file.stat().st_size >= self.max_size
@@ -80,17 +105,19 @@ class FileHandler(BaseHandler):
                     )
                     >= self.max_lines
                 ):
-                    self.current_file = self._get_current_file()
+
+                    self.current_file = await self._get_current_file()
                     self.current_file.touch()
 
             try:
-                with open(self.current_file, "a", encoding="utf-8") as f:
-                    f.write(formatted["standard_file"] + "\n")
+                async with aiofiles.open(self.current_file, "a", encoding="utf-8") as f:
+                    await f.write(formatted["standard_file"] + "\n")
             except OSError as e:
-                print(f"Ошибка записи в файл: {e}")
+                stderr.write(f"OSError: Ошибка записи в файл: {str(e)}")
+                stderr.flush()
 
-    def _get_current_file(self) -> Path:
-        """Получение текущего файла."""
+    async def _get_current_file(self) -> Path:
+        """Асинхронное получение текущего файла."""
         self.file_directory.mkdir(parents=True, exist_ok=True)
         stamp = 1
         while True:
@@ -100,23 +127,29 @@ class FileHandler(BaseHandler):
                 index=stamp,
             )
             candidate = self.file_directory / f"{filename}.log"
-            candidate.touch()
+            if await aiofiles.os.path.exists(candidate):
+                stamp += 1
+                continue
+            with suppress(FileExistsError):
+                await aiofiles.os.mkdir(self.file_directory)
+            with suppress(FileExistsError):
+                await (await aiofiles.open(candidate, "x", encoding="utf-8")).close()
             if self.max_lines:
-                if (
-                    candidate.stat().st_size < self.max_size
-                    and len(candidate.read_text("utf-8", newline="\n").split("\n"))
-                    < self.max_lines
-                ):
+                file_size = (await aiofiles.os.stat(candidate)).st_size
+                async with aiofiles.open(candidate, "r", encoding="utf-8") as f:
+                    lines = sum(1 for _ in await f.readlines())
+                if file_size < self.max_size and lines < self.max_lines:
                     return candidate
-            elif candidate.stat().st_size < self.max_size:
-                return candidate
+            else:
+                if (await aiofiles.os.stat(candidate)).st_size < self.max_size:
+                    return candidate
             stamp += 1
 
 
 class TelegramHandler(BaseHandler):
     """Асинхронная отправка в Telegram через бота."""
 
-    def __init__(self, token: str, chat_id: str) -> None:
+    def __init__(self, token: str, chat_id: int | str) -> None:
         """
         Args:
             token (str): Токен бота
@@ -125,18 +158,12 @@ class TelegramHandler(BaseHandler):
         self.bot = Bot(token)
         self.chat_id = chat_id
 
-    async def async_handle(
-        self, record: LogRecord, formatted: TurboPrintOutput
+    async def handle(
+        self,
+        record: LogRecord,
+        formatted: TurboPrintOutput,
+        stdout: TextIO,
+        stderr: TextIO,
     ) -> None:
-        """Отправка в Telegram."""
+        """Обработка записи и отправка в Telegram"""
         await self.bot.send_message(self.chat_id, formatted["standard_file"])
-
-    def handle(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
-        """Обработка записи."""
-        try:
-            loop = get_running_loop()
-            loop.create_task(self.async_handle(record, formatted))
-        except RuntimeError:
-            run_coroutine_threadsafe(
-                self.async_handle(record, formatted), get_running_loop()
-            )

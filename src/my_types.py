@@ -2,6 +2,7 @@ from colorama import Fore, Style
 from datetime import datetime
 from enum import IntEnum
 from typing import Optional, TypedDict, TYPE_CHECKING, Any
+from functools import cached_property
 
 if TYPE_CHECKING:
     from src.turbo_print import TurboPrint
@@ -32,7 +33,7 @@ class LogLevel(IntEnum):
     ERROR = 50
     CRITICAL = 60
 
-    @property
+    @cached_property
     def color(self) -> str:
         """Цветовое представление уровня для консоли."""
         colors = {

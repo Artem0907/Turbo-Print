@@ -1,9 +1,12 @@
+from asyncio import get_event_loop
 import unittest
+import sys
 from pathlib import Path
 from datetime import datetime
 from tempfile import TemporaryDirectory
 from src.handlers import StreamHandler, FileHandler
 from src.my_types import LogLevel, LogRecord, TurboPrintOutput
+
 
 class TestStreamHandler(unittest.TestCase):
     def test_handle(self) -> None:
@@ -21,12 +24,13 @@ class TestStreamHandler(unittest.TestCase):
             "colored_console": "[INFO] Test",
             "standard_file": "[INFO] Test",
         }
-        handler.handle(record, formatted)
+        handler.handle(record, formatted, sys.stdout, sys.stderr)
+
 
 class TestFileHandler(unittest.TestCase):
     def test_handle(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            handler = FileHandler(Path(tmpdir))
+            handler = FileHandler(Path(tmpdir), "root_{index}")
             record: LogRecord = {
                 "message": "Test",
                 "level": LogLevel.INFO,
@@ -40,5 +44,7 @@ class TestFileHandler(unittest.TestCase):
                 "colored_console": "[INFO] Test",
                 "standard_file": "[INFO] Test",
             }
-            handler.handle(record, formatted)
-            self.assertTrue((Path(tmpdir) / "root_0.log").exists())
+            get_event_loop().run_until_complete(
+                handler.handle(record, formatted, sys.stdout, sys.stderr)
+            )
+            self.assertTrue((Path(tmpdir) / "root_1.log").exists())

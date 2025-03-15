@@ -1,15 +1,21 @@
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from datetime import time
 from re import compile
+from typing import Protocol, runtime_checkable
 
 from src.my_types import LogRecord, LogLevel
 
 __all__ = ["BaseFilter", "LevelFilter", "RegexFilter", "TimeFilter"]
 
 
-class BaseFilter(ABC):
+@runtime_checkable
+class FilterProtocol(Protocol):
+    def filter(self, record: "LogRecord") -> bool: ...
+
+
+class BaseFilter(metaclass=ABCMeta):
     """Базовый класс для фильтрации логов."""
-    
+
     @abstractmethod
     def filter(self, record: LogRecord) -> bool:
         """Фильтрация записи лога.
@@ -25,7 +31,7 @@ class BaseFilter(ABC):
 
 class LevelFilter(BaseFilter):
     """Фильтр по минимальному уровню логирования."""
-    
+
     def __init__(self, level: LogLevel) -> None:
         """
         Args:
@@ -35,7 +41,7 @@ class LevelFilter(BaseFilter):
 
     def filter(self, record: LogRecord) -> bool:
         """Применить фильтр по уровню логирования.
-        
+
         Returns:
             bool: True если уровень записи >= установленного уровня
         """
@@ -48,13 +54,21 @@ class RegexFilter(BaseFilter):
     def __init__(self, pattern: str, invert: bool = False) -> None:
         """
         Args:
-            pattern (str): Регулярное выражение для фильтрации
-            invert (bool): Инвертировать результат фильтрации
+            pattern (str): Регулярное выражение для фильтрации.
+            invert (bool): Инвертировать результат фильтрации.
         """
         self.regex = compile(pattern)
         self.invert = invert
 
     def filter(self, record: LogRecord) -> bool:
+        """Проверяет соответствие сообщения регулярному выражению.
+
+        Args:
+            record (LogRecord): Запись лога для проверки.
+
+        Returns:
+            bool: True, если сообщение соответствует паттерну (или не соответствует при `invert=True`).
+        """
         match = bool(self.regex.search(record["message"]))
         return match if not self.invert else not match
 
@@ -65,13 +79,21 @@ class TimeFilter(BaseFilter):
     def __init__(self, start_time: time, end_time: time) -> None:
         """
         Args:
-            start_time (time): Время начала фильтрации
-            end_time (time): Время окончания фильтрации
+            start_time (time): Время начала фильтрации.
+            end_time (time): Время окончания фильтрации.
         """
         self.start = start_time
         self.end = end_time
 
     def filter(self, record: LogRecord) -> bool:
+        """Проверяет, попадает ли время записи в заданный диапазон.
+
+        Args:
+            record (LogRecord): Запись лога для проверки.
+
+        Returns:
+            bool: True, если время записи попадает в диапазон.
+        """
         log_time = record["timestamp"].time()
         if self.start <= self.end:
             return self.start <= log_time <= self.end

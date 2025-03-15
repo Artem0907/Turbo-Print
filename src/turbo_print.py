@@ -1,6 +1,11 @@
 from functools import wraps
-from typing import ClassVar, Optional, Callable, Any, TypeVar, Literal, cast
+import sys
+from typing import ClassVar, Optional, Callable, Any, TextIO, TypeVar, Literal, cast
 from datetime import datetime
+from asyncio import AbstractEventLoop, get_running_loop, get_event_loop
+from inspect import iscoroutinefunction
+
+from colorama import Style
 
 from src.my_types import LogLevel, TurboPrintOutput, LogRecord
 from src.formatters import BaseFormatter, DefaultFormatter
@@ -10,22 +15,27 @@ from src.handlers import BaseHandler, StreamHandler
 __all__ = ["TurboPrint"]
 ROOT_LOGGER_NAME = "root"
 _F = TypeVar("_F", bound=Callable[..., Any])
+try:
+    _DEFAULT_ASYNC_LOOP = get_running_loop()
+except RuntimeError:
+    _DEFAULT_ASYNC_LOOP = get_event_loop()
 
 
 class TurboPrint:
-    """Иерархическая система логирования с расширенными возможностями."""
-
     _registry: ClassVar[dict[str, "TurboPrint"]] = {}
     _root_logger: ClassVar["TurboPrint"]
 
     @classmethod
     def _init_root_logger(cls) -> None:
         """Инициализация корневого логгера."""
-        cls._root_logger = None  # type: ignore
+        if hasattr(cls, "_root_logger"):
+            return
+
+        cls._root_logger = None  # type:  ignore
         root = cls(
             ROOT_LOGGER_NAME,
             prefix="ROOT",
-            level=LogLevel.INFO,  # Исправлено с LOG на INFO
+            level=LogLevel.INFO,
             propagate=False,
             handlers=[StreamHandler()],
         )
@@ -63,13 +73,19 @@ class TurboPrint:
         handlers: Optional[list[BaseHandler]] = None,
         filters: Optional[list[BaseFilter]] = None,
         formatter: BaseFormatter = DefaultFormatter(),
+        async_loop: AbstractEventLoop = _DEFAULT_ASYNC_LOOP,
+        stderr: TextIO = sys.stderr,
+        stdout: TextIO = sys.stdout,
     ) -> None:
         """Инициализация логгера."""
         if not hasattr(TurboPrint, "_root_logger"):
             TurboPrint._init_root_logger()
 
+        self.stderr = stderr
+        self.stdout = stdout
         self.name = name or str(id(self))
         self.enabled = enabled
+        self.async_loop = async_loop
         self.prefix = prefix
         self.level = level
         self.parent = parent if parent else self._root_logger
@@ -84,16 +100,15 @@ class TurboPrint:
         self._children: list[TurboPrint] = []
 
         if self.name in TurboPrint._registry:
-            raise ValueError(f"Логгер '{self.name}' уже существует")
+            stderr.write(f"ValueError: Логгер '{self.name}' уже существует" + "\n")
+            stderr.flush()
 
         if self.parent:
             self.parent._add_child(self)
 
         TurboPrint._registry[self.name] = self
 
-    def __call__(
-        self, message: str, level: LogLevel = LogLevel.NOTSET, **kwargs: Any
-    ) -> TurboPrintOutput | Literal[False]:
+    def __call__(self, message: str, level: LogLevel = LogLevel.NOTSET, **kwargs: Any):
         """Основной метод логирования."""
         if not self.enabled or level < self.level:
             return False
@@ -114,6 +129,7 @@ class TurboPrint:
             colored_console=self.formatter.format_colored(record),
             standard_file=self.formatter.format(record),
         )
+        self.record, self.formatted = record, formatted
 
         self._start_handlers(record, formatted)
 
@@ -144,12 +160,18 @@ class TurboPrint:
             self.parent._propagate(new_record)
 
     def _start_handlers(self, record: LogRecord, formatted: TurboPrintOutput) -> None:
-        """Запуск обработчиков."""
+        """Запуск обработчиков с обработкой ошибок."""
         for handler in self.get_handlers():
             try:
-                handler.handle(record, formatted)
+                if iscoroutinefunction(handler.handle):
+                    self.async_loop.run_until_complete(
+                        handler.handle(record, formatted, self.stdout, self.stderr)
+                    )
+                else:
+                    handler.handle(record, formatted, self.stdout, self.stderr)
             except Exception as e:
-                print(f"Ошибка обработчика {handler}: {e}")
+                self.stderr.write(f"Ошибка обработчика {handler}: {e}")
+                self.stderr.flush()
 
     def get_filters(self) -> list[BaseFilter]:
         """Получение списка фильтров."""
@@ -183,13 +205,15 @@ class TurboPrint:
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
-                    self(
-                        f"Исключение в {func.__name__}: {str(e)}",
-                        LogLevel.CRITICAL,
-                        **log_params,
+                except Exception as exception:
+                    exc_name = exception.__class__.__name__
+                    exc_file = f"{func.__code__.co_filename.replace("\\", "/")}:{func.__code__.co_firstlineno}"
+                    exception_message = f'Исключение {exc_name} в "{exc_file}" [{func.__name__}]: {str(exception)}'
+                    self(exception_message, LogLevel.CRITICAL, **log_params)
+                    self.stderr.write(
+                        LogLevel.CRITICAL.color + exception_message + Style.RESET_ALL
                     )
-                    raise
+                    exit(1)
 
             return cast(_F, wrapper)
 
