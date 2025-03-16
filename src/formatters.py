@@ -4,32 +4,49 @@ from colorama import Style
 from yaml import dump as yaml_dump
 from ujson import dumps as json_dump
 from csv import DictWriter
-from typing import Optional
+from typing import Optional, Any, Dict, List
 from string import Formatter
+from datetime import datetime
 
 from src.my_types import LogRecord
 from src.localization import Localization
 
-__all__ = ["BaseFormatter", "DefaultFormatter", "JSONFormatter", "XMLFormatter", "YAMLFormatter", "CSVFormatter", "HTMLFormatter", "MarkdownFormatter"]
-
 
 class BaseFormatter(ABC):
-    """Базовый класс для форматирования записей."""
+    """Базовый класс для форматирования записей логов."""
 
     @abstractmethod
-    def format(self, record: LogRecord) -> str:
-        """Форматирование записи в строку."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование записи в строку.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: Отформатированная строка.
+        """
         raise NotImplementedError
 
-    def format_colored(self, record: LogRecord) -> str:
-        """Цветное форматирование записи."""
-        return self.format(record)
+    async def format_colored(self, record: LogRecord) -> str:
+        """Асинхронное цветное форматирование записи.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: Отформатированная строка с цветами.
+        """
+        return await self.format(record)
 
 
 class DefaultFormatter(BaseFormatter):
-    """Форматтер по умолчанию с поддержкой локализации."""
+    """Форматтер по умолчанию с поддержкой локализации и асинхронного форматирования."""
 
-    def __init__(self, fmt: str = "[{time}] {prefix} | {level_name}[{level_value}]: {message}", localization: Optional[Localization] = None) -> None:
+    def __init__(
+        self,
+        fmt: str = "[{time}] {prefix} | {level_name}[{level_value}]: {message}",
+        localization: Optional[Localization] = None,
+    ) -> None:
         """
         Args:
             fmt (str): Шаблон форматирования.
@@ -38,29 +55,52 @@ class DefaultFormatter(BaseFormatter):
         self._fmt = fmt
         self.localization = localization or Localization()
 
-    def format(self, record: LogRecord) -> str:
-        """Основное форматирование сообщения."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование сообщения.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: Отформатированная строка.
+        """
         data = {
             "time": self.localization.format_datetime(record["timestamp"]),
             "name": record["name"],
             "prefix": record["prefix"] or record["name"],
-            "level_name": self.localization.translate(record["level"].name.lower()),
+            "level_name": await self.localization.translate(
+                record["level"].name.lower()
+            ),
             "level_value": record["level"].value,
             **record["extra"],
         }
         return self._fmt.format(**data, message=record["message"].format(**data))
 
-    def format_colored(self, record: LogRecord) -> str:
-        """Добавление цветовой подсветки к сообщению."""
-        base = self.format(record)
+    async def format_colored(self, record: LogRecord) -> str:
+        """Асинхронное цветное форматирование сообщения.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: Отформатированная строка с цветами.
+        """
+        base = await self.format(record)
         return f"{record['level'].color}{base}{Style.RESET_ALL}"
 
 
 class JSONFormatter(BaseFormatter):
     """Форматтер для формирования JSON-строки."""
 
-    def format(self, record: LogRecord) -> str:
-        """Форматирование записи в JSON-строку."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование записи в JSON-строку.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: JSON-строка.
+        """
         log_data = {
             "message": record["message"],
             "name": record["name"],
@@ -75,8 +115,15 @@ class JSONFormatter(BaseFormatter):
 class XMLFormatter(BaseFormatter):
     """Форматтер для формирования XML-строки."""
 
-    def format(self, record: LogRecord) -> str:
-        """Форматирование записи в XML-строку."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование записи в XML-строку.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: XML-строка.
+        """
         log_data = {
             "message": record["message"],
             "name": record["name"],
@@ -91,8 +138,15 @@ class XMLFormatter(BaseFormatter):
 class YAMLFormatter(BaseFormatter):
     """Форматтер для формирования YAML-строки."""
 
-    def format(self, record: LogRecord) -> str:
-        """Форматирование записи в YAML-строку."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование записи в YAML-строку.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: YAML-строка.
+        """
         log_data = {
             "message": record["message"],
             "name": record["name"],
@@ -107,8 +161,15 @@ class YAMLFormatter(BaseFormatter):
 class CSVFormatter(BaseFormatter):
     """Форматтер для формирования CSV-строки."""
 
-    def format(self, record: LogRecord) -> str:
-        """Форматирование записи в CSV-строку."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование записи в CSV-строку.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: CSV-строка.
+        """
         log_data = {
             "message": record["message"],
             "name": record["name"],
@@ -127,8 +188,15 @@ class CSVFormatter(BaseFormatter):
 class HTMLFormatter(BaseFormatter):
     """Форматтер для формирования HTML-строки."""
 
-    def format(self, record: LogRecord) -> str:
-        """Форматирование записи в HTML-строку."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование записи в HTML-строку.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: HTML-строка.
+        """
         log_data = {
             "message": record["message"],
             "name": record["name"],
@@ -147,8 +215,15 @@ class HTMLFormatter(BaseFormatter):
 class MarkdownFormatter(BaseFormatter):
     """Форматтер для формирования Markdown-строки."""
 
-    def format(self, record: LogRecord) -> str:
-        """Форматирование записи в Markdown-строку."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование записи в Markdown-строку.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: Markdown-строка.
+        """
         log_data = {
             "message": record["message"],
             "name": record["name"],
@@ -158,7 +233,8 @@ class MarkdownFormatter(BaseFormatter):
             "parent": repr(record["parent"]),
         }
         return "\n".join(f"**{k}:** {v}" for k, v in log_data.items())
-    
+
+
 class CustomFormatter(BaseFormatter):
     """Форматтер для создания пользовательских форматов логов."""
 
@@ -171,8 +247,15 @@ class CustomFormatter(BaseFormatter):
         self._fmt = fmt
         self._macros = macros or {}
 
-    def format(self, record: LogRecord) -> str:
-        """Форматирование записи с использованием пользовательского шаблона и макросов."""
+    async def format(self, record: LogRecord) -> str:
+        """Асинхронное форматирование записи с использованием пользовательского шаблона и макросов.
+
+        Args:
+            record (LogRecord): Запись лога.
+
+        Returns:
+            str: Отформатированная строка.
+        """
         formatter = Formatter()
         data = {
             "time": record["timestamp"].strftime("%H:%M:%S"),

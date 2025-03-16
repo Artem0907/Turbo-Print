@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 class LoggingAdapter:
-    """Адаптер для миграции с стандартного модуля logging на TurboPrint."""
+    """Адаптер для миграции с стандартного модуля logging на TurboPrint с поддержкой асинхронности."""
 
     def __init__(self, logger: Optional[TurboPrint] = None):
         """
@@ -17,7 +17,14 @@ class LoggingAdapter:
 
     @staticmethod
     def convert_level(level: int) -> LogLevel:
-        """Конвертирует уровень логирования из logging в TurboPrint."""
+        """Конвертирует уровень логирования из logging в TurboPrint.
+
+        Args:
+            level (int): Уровень логирования из модуля logging.
+
+        Returns:
+            LogLevel: Соответствующий уровень логирования TurboPrint.
+        """
         level_mapping = {
             logging.NOTSET: LogLevel.NOTSET,
             logging.DEBUG: LogLevel.DEBUG,
@@ -28,22 +35,30 @@ class LoggingAdapter:
         }
         return level_mapping.get(level, LogLevel.NOTSET)
 
-    def migrate_handler(self, handler: logging.Handler) -> None:
-        """Мигрирует обработчик из logging в TurboPrint."""
+    async def migrate_handler(self, handler: logging.Handler) -> None:
+        """Асинхронная миграция обработчика из logging в TurboPrint.
+
+        Args:
+            handler (logging.Handler): Обработчик из модуля logging.
+        """
         if isinstance(handler, logging.StreamHandler):
             self.logger.add_handler(StreamHandler())
         elif isinstance(handler, logging.FileHandler):
             self.logger.add_handler(FileHandler(Path(handler.baseFilename).parent))
         # Добавьте другие обработчики по необходимости
 
-    def migrate_logger(self, logger: logging.Logger) -> None:
-        """Мигрирует логгер из logging в TurboPrint."""
+    async def migrate_logger(self, logger: logging.Logger) -> None:
+        """Асинхронная миграция логгера из logging в TurboPrint.
+
+        Args:
+            logger (logging.Logger): Логгер из модуля logging.
+        """
         # Уровень логирования
         self.logger.set_level(self.convert_level(logger.level))
 
         # Обработчики
         for handler in logger.handlers:
-            self.migrate_handler(handler)
+            await self.migrate_handler(handler)
 
         # Фильтры
         for filter in logger.filters:
@@ -51,9 +66,13 @@ class LoggingAdapter:
             pass
 
     @staticmethod
-    def auto_migrate() -> TurboPrint:
-        """Автоматически мигрирует корневой логгер logging в TurboPrint."""
+    async def auto_migrate() -> TurboPrint:
+        """Асинхронная автоматическая миграция корневого логгера logging в TurboPrint.
+
+        Returns:
+            TurboPrint: Мигрированный логгер TurboPrint.
+        """
         root_logger = logging.getLogger()
         adapter = LoggingAdapter()
-        adapter.migrate_logger(root_logger)
+        await adapter.migrate_logger(root_logger)
         return adapter.logger

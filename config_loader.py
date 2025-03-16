@@ -1,9 +1,11 @@
-import json
-from pathlib import Path
-from typing import Dict, Any
-import yaml
 from configparser import ConfigParser
-
+from pathlib import Path
+from typing import Dict, Any, Optional
+import aiofiles
+import configparser
+import json
+import toml
+import yaml
 from src.turbo_print import TurboPrint
 from src.handlers import (
     StreamHandler,
@@ -21,6 +23,7 @@ from src.formatters import (
     MarkdownFormatter,
 )
 from src.filters import (
+    BaseFilter,
     LevelFilter,
     RegexFilter,
     TimeFilter,
@@ -34,43 +37,148 @@ class ConfigLoader:
     """Класс для загрузки конфигурации логгера из файлов."""
 
     @staticmethod
-    def from_json(file_path: Path) -> Dict[str, Any]:
-        """Загружает конфигурацию из JSON файла."""
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+    async def from_json(file_path: Path) -> Dict[str, Any]:
+        """Асинхронно загружает конфигурацию из JSON файла.
+
+        Args:
+            file_path (Path): Путь к JSON файлу.
+
+        Returns:
+            Dict[str, Any]: Словарь с конфигурацией.
+
+        Raises:
+            FileNotFoundError: Если файл не найден.
+            json.JSONDecodeError: Если файл содержит некорректный JSON.
+        """
+        try:
+            async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+                content = await f.read()
+                return json.loads(content)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Файл {file_path} не найден") from e
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(
+                f"Некорректный JSON в файле {file_path}", e.doc, e.pos
+            ) from e
 
     @staticmethod
-    def from_yaml(file_path: Path) -> Dict[str, Any]:
-        """Загружает конфигурацию из YAML файла."""
-        with open(file_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
+    async def from_yaml(file_path: Path) -> Dict[str, Any]:
+        """Асинхронно загружает конфигурацию из YAML файла.
+
+        Args:
+            file_path (Path): Путь к YAML файлу.
+
+        Returns:
+            Dict[str, Any]: Словарь с конфигурацией.
+
+        Raises:
+            FileNotFoundError: Если файл не найден.
+            yaml.YAMLError: Если файл содержит некорректный YAML.
+        """
+        try:
+            async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+                content = await f.read()
+                return yaml.safe_load(content)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Файл {file_path} не найден") from e
+        except yaml.YAMLError as e:
+            raise yaml.YAMLError(f"Некорректный YAML в файле {file_path}") from e
 
     @staticmethod
-    def from_ini(file_path: Path) -> Dict[str, Any]:
-        """Загружает конфигурацию из INI файла."""
+    async def from_ini(file_path: Path) -> Dict[str, Any]:
+        """Асинхронно загружает конфигурацию из INI файла.
+
+        Args:
+            file_path (Path): Путь к INI файлу.
+
+        Returns:
+            Dict[str, Any]: Словарь с конфигурацией.
+
+        Raises:
+            FileNotFoundError: Если файл не найден.
+            configparser.Error: Если файл содержит некорректный INI.
+        """
         config = ConfigParser()
-        config.read(file_path)
-        return {section: dict(config[section]) for section in config.sections()}
+        try:
+            async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+                content = await f.read()
+                config.read_string(content)
+                return {section: dict(config[section]) for section in config.sections()}
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Файл {file_path} не найден") from e
+        except configparser.Error as e:
+            raise configparser.Error(f"Некорректный INI в файле {file_path}") from e
 
     @staticmethod
-    def configure_logger_from_file(file_path: Path) -> TurboPrint:
-        """Создает и настраивает логгер на основе конфигурации из файла."""
-        if file_path.suffix == ".json":
-            config = ConfigLoader.from_json(file_path)
-        elif file_path.suffix in (".yaml", ".yml"):
-            config = ConfigLoader.from_yaml(file_path)
-        elif file_path.suffix == ".ini":
-            config = ConfigLoader.from_ini(file_path)
-        else:
-            raise ValueError("Неподдерживаемый формат файла")
+    async def from_toml(file_path: Path) -> Dict[str, Any]:
+        """Асинхронно загружает конфигурацию из TOML файла.
 
-        return ConfigLoader._create_logger_from_config(config)
+        Args:
+            file_path (Path): Путь к TOML файлу.
+
+        Returns:
+            Dict[str, Any]: Словарь с конфигурацией.
+
+        Raises:
+            FileNotFoundError: Если файл не найден.
+            toml.TomlDecodeError: Если файл содержит некорректный TOML.
+        """
+        try:
+            async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+                content = await f.read()
+                return toml.loads(content)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Файл {file_path} не найден") from e
+        except toml.TomlDecodeError as e:
+            raise toml.TomlDecodeError(f"Некорректный TOML в файле {file_path}") from e
 
     @staticmethod
-    def _create_logger_from_config(config: Dict[str, Any]) -> TurboPrint:
-        """Создает логгер на основе конфигурации."""
-        logger_name = config.get("name", "root")
-        logger = TurboPrint.get_logger(logger_name)
+    async def configure_logger_from_file(
+        file_path: Path, logger: Optional[TurboPrint] = None
+    ) -> TurboPrint:
+        """Асинхронно создает и настраивает логгер на основе конфигурации из файла.
+
+        Args:
+            file_path (Path): Путь к файлу конфигурации.
+            logger (Optional[TurboPrint]): Существующий логгер для обновления. Если None, создается новый.
+
+        Returns:
+            TurboPrint: Настроенный логгер.
+
+        Raises:
+            ValueError: Если формат файла не поддерживается.
+            FileNotFoundError: Если файл не найден.
+        """
+        try:
+            if file_path.suffix == ".json":
+                config = await ConfigLoader.from_json(file_path)
+            elif file_path.suffix in (".yaml", ".yml"):
+                config = await ConfigLoader.from_yaml(file_path)
+            elif file_path.suffix == ".ini":
+                config = await ConfigLoader.from_ini(file_path)
+            elif file_path.suffix == ".toml":
+                config = await ConfigLoader.from_toml(file_path)
+            else:
+                raise ValueError("Неподдерживаемый формат файла")
+
+            return await ConfigLoader._create_logger_from_config(config, logger)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Файл {file_path} не найден") from e
+
+    @staticmethod
+    async def _create_logger_from_config(
+        config: Dict[str, Any], logger: Optional[TurboPrint] = None
+    ) -> TurboPrint:
+        """Асинхронно создает логгер на основе конфигурации.
+
+        Args:
+            config (Dict[str, Any]): Конфигурация логгера.
+            logger (Optional[TurboPrint]): Существующий логгер для обновления. Если None, создается новый.
+
+        Returns:
+            TurboPrint: Настроенный логгер.
+        """
+        logger = logger or TurboPrint.get_logger(config.get("name", "root"))
 
         # Настройка уровня логирования
         if "level" in config:
@@ -135,7 +243,7 @@ class ConfigLoader:
                             )
                         elif filter_type == "regex":
                             handler.add_filter(
-                                RegexFilter(filter_config.get("pattern"))
+                                RegexFilter(filter_config.get("pattern", ""))
                             )
                         elif filter_type == "time":
                             handler.add_filter(
@@ -146,7 +254,7 @@ class ConfigLoader:
                             )
                         elif filter_type == "module":
                             handler.add_filter(
-                                ModuleFilter(filter_config.get("module_name"))
+                                ModuleFilter(filter_config.get("module_name", ""))
                             )
                         elif filter_type == "composite":
                             handler.add_filter(
@@ -169,19 +277,29 @@ class ConfigLoader:
 
     @staticmethod
     def _create_filter(filter_config: Dict[str, Any]) -> BaseFilter:
-        """Создает фильтр на основе конфигурации."""
+        """Создает фильтр на основе конфигурации.
+
+        Args:
+            filter_config (Dict[str, Any]): Конфигурация фильтра.
+
+        Returns:
+            BaseFilter: Созданный фильтр.
+
+        Raises:
+            ValueError: Если тип фильтра не поддерживается.
+        """
         filter_type = filter_config.get("type")
         if filter_type == "level":
             return LevelFilter(LogLevel[filter_config.get("level")])
         elif filter_type == "regex":
-            return RegexFilter(filter_config.get("pattern"))
+            return RegexFilter(filter_config.get("pattern", ""))
         elif filter_type == "time":
             return TimeFilter(
                 start_time=filter_config.get("start_time"),
                 end_time=filter_config.get("end_time"),
             )
         elif filter_type == "module":
-            return ModuleFilter(filter_config.get("module_name"))
+            return ModuleFilter(filter_config.get("module_name", ""))
         elif filter_type == "composite":
             return CompositeFilter(
                 filters=[

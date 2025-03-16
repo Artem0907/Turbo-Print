@@ -1,8 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from datetime import time
 from re import compile
-from typing import Protocol, runtime_checkable, Literal
-
+from typing import Protocol, runtime_checkable, Literal, List, Dict, Any
 from src.my_types import LogRecord, LogLevel
 
 __all__ = ["BaseFilter", "LevelFilter", "RegexFilter", "TimeFilter"]
@@ -21,10 +20,10 @@ class BaseFilter(metaclass=ABCMeta):
         """Фильтрация записи лога.
 
         Args:
-            record (LogRecord): Запись для фильтрации
+            record (LogRecord): Запись для фильтрации.
 
         Returns:
-            bool: True если запись должна быть обработана
+            bool: True если запись должна быть обработана.
         """
         raise NotImplementedError
 
@@ -40,7 +39,14 @@ class LevelFilter(BaseFilter):
         self.level = level
 
     def filter(self, record: LogRecord) -> bool:
-        """Применить фильтр по уровню логирования."""
+        """Применить фильтр по уровню логирования.
+
+        Args:
+            record (LogRecord): Запись лога для проверки.
+
+        Returns:
+            bool: True, если уровень записи >= заданного уровня.
+        """
         return record["level"] >= self.level
 
 
@@ -100,9 +106,21 @@ class ModuleFilter(BaseFilter):
     """Фильтрация записей по имени модуля."""
 
     def __init__(self, module_name: str) -> None:
+        """
+        Args:
+            module_name (str): Имя модуля для фильтрации.
+        """
         self.module_name = module_name
 
     def filter(self, record: LogRecord) -> bool:
+        """Фильтрация по имени модуля.
+
+        Args:
+            record (LogRecord): Запись лога для проверки.
+
+        Returns:
+            bool: True, если имя модуля совпадает.
+        """
         return record["name"] == self.module_name
 
 
@@ -110,12 +128,25 @@ class CompositeFilter(BaseFilter):
     """Комбинирование фильтров через логические операции."""
 
     def __init__(
-        self, filters: list[BaseFilter], mode: Literal["AND", "OR"] = "AND"
+        self, filters: List[BaseFilter], mode: Literal["AND", "OR"] = "AND"
     ) -> None:
+        """
+        Args:
+            filters (List[BaseFilter]): Список фильтров.
+            mode (Literal["AND", "OR"]): Режим комбинирования (AND или OR).
+        """
         self.filters = filters
         self.mode = mode
 
     def filter(self, record: LogRecord) -> bool:
+        """Применяет комбинированный фильтр.
+
+        Args:
+            record (LogRecord): Запись лога для проверки.
+
+        Returns:
+            bool: Результат фильтрации.
+        """
         if self.mode == "AND":
             return all(f.filter(record) for f in self.filters)
         elif self.mode == "OR":
@@ -126,7 +157,7 @@ class CompositeFilter(BaseFilter):
 class TagFilter(BaseFilter):
     """Фильтр по тегам."""
 
-    def __init__(self, tags: list[str], match_all: bool = True) -> None:
+    def __init__(self, tags: List[str], match_all: bool = True) -> None:
         """
         Args:
             tags (List[str]): Список тегов для фильтрации.
@@ -136,7 +167,14 @@ class TagFilter(BaseFilter):
         self.match_all = match_all
 
     def filter(self, record: LogRecord) -> bool:
-        """Фильтрация по тегам."""
+        """Фильтрация по тегам.
+
+        Args:
+            record (LogRecord): Запись лога для проверки.
+
+        Returns:
+            bool: Результат фильтрации.
+        """
         if self.match_all:
             return all(tag in record["tags"] for tag in self.tags)
         else:
@@ -154,5 +192,12 @@ class CategoryFilter(BaseFilter):
         self.category = category
 
     def filter(self, record: LogRecord) -> bool:
-        """Фильтрация по категории."""
+        """Фильтрация по категории.
+
+        Args:
+            record (LogRecord): Запись лога для проверки.
+
+        Returns:
+            bool: Результат фильтрации.
+        """
         return record["category"] == self.category
