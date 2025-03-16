@@ -1,8 +1,19 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from traceback import format_exc
 from datetime import datetime
-from src.turbo_print import TurboPrint
 from src.my_types import LogLevel
+import json
+
+if TYPE_CHECKING:
+    from src.turbo_print import TurboPrint
+
+__all__ = [
+    "CustomException",
+    "CompressionError",
+    "DecompressionError",
+    "LoggingError",
+    "SerializationError",
+]
 
 
 class CustomException(Exception):
@@ -11,7 +22,7 @@ class CustomException(Exception):
     def __init__(
         self,
         message: str,
-        logger: Optional[TurboPrint] = None,
+        logger: Optional["TurboPrint"] = None,
         level: LogLevel = LogLevel.ERROR,
         context: Optional[Dict[str, Any]] = None,
     ):
@@ -35,7 +46,7 @@ class CustomException(Exception):
             self.log()
 
     def log(self) -> None:
-        """Логирует исключение с дополнительной информацией."""
+        """Синхронное логирование исключения с дополнительной информацией."""
         if self.logger:
             self.logger(
                 f"Исключение: {self.message}",
@@ -46,7 +57,7 @@ class CustomException(Exception):
             )
 
     async def log_async(self) -> None:
-        """Асинхронно логирует исключение с дополнительной информацией."""
+        """Асинхронное логирование исключения с дополнительной информацией."""
         if self.logger:
             self.logger(
                 f"Исключение: {self.message}",
@@ -70,6 +81,14 @@ class CustomException(Exception):
             "context": self.context,
         }
 
+    def to_json(self) -> str:
+        """Сериализует исключение в JSON-строку.
+
+        Returns:
+            str: JSON-строка с информацией об исключении.
+        """
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+
     def __str__(self) -> str:
         """Возвращает строковое представление исключения.
 
@@ -77,3 +96,68 @@ class CustomException(Exception):
             str: Строковое представление исключения.
         """
         return f"{self.message}\nStack Trace:\n{self.stack_trace}"
+
+
+class CompressionError(CustomException):
+    """Исключение, связанное с ошибками сжатия."""
+
+    def __init__(
+        self,
+        message: str,
+        logger: Optional["TurboPrint"] = None,
+        level: LogLevel = LogLevel.ERROR,
+        context: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, logger, level, context)
+
+
+class DecompressionError(CustomException):
+    """Исключение, связанное с ошибками распаковки."""
+
+    def __init__(
+        self,
+        message: str,
+        logger: Optional["TurboPrint"] = None,
+        level: LogLevel = LogLevel.ERROR,
+        context: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, logger, level, context)
+
+
+class LoggingError(CustomException):
+    """Исключение, связанное с ошибками логирования."""
+
+    def __init__(
+        self,
+        message: str,
+        logger: Optional["TurboPrint"] = None,
+        level: LogLevel = LogLevel.ERROR,
+        context: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, logger, level, context)
+
+
+class SerializationError(CustomException):
+    """Исключение, связанное с ошибками сериализации."""
+
+    def __init__(
+        self,
+        message: str,
+        logger: Optional["TurboPrint"] = None,
+        level: LogLevel = LogLevel.ERROR,
+        context: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, logger, level, context)
+
+
+class RecoveryMixin:
+    """Миксин для восстановления состояния после исключения."""
+
+    def recover(self) -> bool:
+        """Попытка восстановления состояния после исключения.
+
+        Returns:
+            bool: True, если восстановление успешно, иначе False.
+        """
+        # Пример реализации восстановления (может быть переопределен в дочерних классах)
+        return False
