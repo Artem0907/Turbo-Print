@@ -1,14 +1,15 @@
-from typing import Dict, Any, Optional
+from typing import TYPE_CHECKING, Dict, Any, Optional
 from datetime import datetime
 from prometheus_client import Counter, Gauge, start_http_server
-from src.turbo_print import TurboPrint
+if TYPE_CHECKING:
+    from src.turbo_print import TurboPrint
 from src.my_types import LogLevel
 
 
 class Metrics:
     """Класс для сбора и экспорта метрик с поддержкой асинхронности."""
 
-    def __init__(self, realtime_logger: Optional[TurboPrint] = None):
+    def __init__(self, realtime_logger: Optional["TurboPrint"] = None):
         """
         Args:
             realtime_logger (Optional[TurboPrint]): Логгер для записи в реальном времени.
@@ -75,7 +76,7 @@ class Metrics:
 class CustomMetrics(Metrics):
     """Класс для создания пользовательских метрик."""
 
-    def __init__(self, realtime_logger: Optional[TurboPrint] = None):
+    def __init__(self, realtime_logger: Optional["TurboPrint"] = None):
         """
         Args:
             realtime_logger (Optional[TurboPrint]): Логгер для записи в реальном времени.

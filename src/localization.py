@@ -1,8 +1,10 @@
-from typing import Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional, Union
 from datetime import datetime
 from babel.dates import format_datetime
 from babel.numbers import format_number
-from src.turbo_print import TurboPrint
+
+if TYPE_CHECKING:
+    from src.turbo_print import TurboPrint
 from src.my_types import LogLevel
 
 
@@ -10,7 +12,7 @@ class Localization:
     """Класс для поддержки локализации сообщений логов с асинхронными методами."""
 
     def __init__(
-        self, locale: str = "en", realtime_logger: Optional[TurboPrint] = None
+        self, locale: str = "en", realtime_logger: Optional["TurboPrint"] = None
     ):
         """
         Args:

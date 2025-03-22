@@ -16,11 +16,17 @@ from traceback import format_exc
 from typing import ClassVar, Optional, Callable, Any, TextIO, TypeVar, cast
 import sys
 
-from config_loader import ConfigLoader
+# from config_loader import ConfigLoader
 from src import formatters, handlers, filters
 from src.filters import BaseFilter
 from src.formatters import BaseFormatter, DefaultFormatter
-from src.handlers import BaseHandler, StreamHandler
+from src.handlers import (
+    BaseHandler,
+    StreamHandler,
+    BufferedFileHandler,
+    FileHandler,
+    TimedRotatingFileHandler,
+)
 from src.inner_middlewares import BaseInnerMiddleware
 from src.localization import Localization
 from src.metrics import Metrics
@@ -421,7 +427,11 @@ class TurboPrint:
         Returns:
             list[BaseFilter]: Список фильтров.
         """
-        return self._logger_filters + self.parent.get_filters()
+        return (
+            self._logger_filters + self.parent.get_filters()
+            if self.parent
+            else self._logger_filters
+        )
 
     def remove_filter(self, filter: BaseFilter) -> None:
         """Удаляет фильтр.
@@ -513,16 +523,16 @@ class TurboPrint:
                     self.add_filter(
                         filters.ModuleFilter(filter_config.get("module_name"))
                     )
-                elif filter_type == "composite":
-                    self.add_filter(
-                        filters.CompositeFilter(
-                            filters=[
-                                ConfigLoader._create_filter(f)
-                                for f in filter_config.get("filters", [])
-                            ],
-                            mode=filter_config.get("mode", "AND"),
-                        )
-                    )
+                # elif filter_type == "composite":
+                # self.add_filter(
+                # filters.CompositeFilter(
+                # filters=[
+                #     ConfigLoader._create_filter(f)
+                #     for f in filter_config.get("filters", [])
+                # ],
+                # mode=filter_config.get("mode", "AND"),
+                # )
+                # )
 
     def exception(
         self,
@@ -623,3 +633,12 @@ def performance_metrics(func):
         return result
 
     return wrapper
+
+
+tp = TurboPrint()
+tp.add_handler(
+    TimedRotatingFileHandler(
+        Path("../logs/"), "test_{time}", compress=True, compress_format="rar"
+    )
+)
+tp("message", LogLevel.WARNING)

@@ -1,17 +1,19 @@
-from typing import Dict, Any, Optional
+from typing import TYPE_CHECKING, Dict, Any, Optional
 from threading import Thread
 from queue import Queue
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from colorama import Fore, Style
-from src.turbo_print import TurboPrint
+
+if TYPE_CHECKING:
+    from src.turbo_print import TurboPrint
 from src.my_types import LogLevel
 
 
 class RealTimeLogger:
     """Класс для логирования в реальном времени с поддержкой асинхронности."""
 
-    def __init__(self, logger: Optional[TurboPrint] = None):
+    def __init__(self, logger: Optional["TurboPrint"] = None):
         """
         Args:
             logger (Optional[TurboPrint]): Логгер для записи ошибок.
@@ -85,7 +87,7 @@ class RealTimeLogger:
 class CustomRealTimeLogger(RealTimeLogger):
     """Класс для создания пользовательских обработчиков логирования в реальном времени."""
 
-    def __init__(self, logger: Optional[TurboPrint] = None):
+    def __init__(self, logger: Optional["TurboPrint"] = None):
         """
         Args:
             logger (Optional[TurboPrint]): Логгер для записи ошибок.

@@ -11,7 +11,7 @@ import aiofiles
 import aiofiles.os
 import rarfile
 
-from src.compression import Compression
+from src.compression import ZipCompressor, RarCompressor
 from src.filters import BaseFilter
 from src.formatters import BaseFormatter
 from src.my_types import LogRecord
@@ -220,7 +220,7 @@ class TimedRotatingFileHandler(BaseHandler):
         self.compress = compress
         self.compress_format = compress_format
 
-    async def _rotate(self) -> None:
+    async def _rotate(self, logger) -> None:
         """Асинхронная ротация файлов логов с возможностью сжатия."""
         files = sorted(
             self.file_directory.glob("*.log"),
@@ -230,14 +230,10 @@ class TimedRotatingFileHandler(BaseHandler):
         for file in files[self.backup_count :]:
             if self.compress:
                 compressed_file = file.with_suffix(f".{self.compress_format}")
-                if self.compress_format == "gzip":
-                    await Compression().compress_gzip(file, compressed_file)
-                elif self.compress_format == "zip":
-                    await Compression().compress_zip(file, compressed_file)
+                if self.compress_format == "zip":
+                    await ZipCompressor(logger=logger).compress(file, compressed_file)
                 elif self.compress_format == "rar":
-                    await Compression().compress_rar(
-                        file, compressed_file
-                    )  # Добавляем RAR
+                    await RarCompressor(logger=logger).compress(file, compressed_file)
             else:
                 await aiofiles.os.remove(file)
 
@@ -297,7 +293,7 @@ class TimedRotatingFileHandler(BaseHandler):
             if datetime.now() >= self.next_rotation:
                 self.current_file = self._get_current_file()
                 self.next_rotation = self._calculate_next_rotation()
-                await self._rotate()
+                await self._rotate(logger)
 
             try:
                 formatted = (
