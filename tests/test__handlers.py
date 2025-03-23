@@ -6,10 +6,11 @@ from datetime import datetime
 from tempfile import TemporaryDirectory
 from src.handlers import StreamHandler, FileHandler
 from src.my_types import LogLevel, LogRecord, TurboPrintOutput
+from src.turbo_print import TurboPrint
 
 
 class TestStreamHandler(unittest.TestCase):
-    def test_handle(self) -> None:
+    async def test_handle(self) -> None:
         handler = StreamHandler()
         record: LogRecord = {
             "message": "Test",
@@ -19,16 +20,14 @@ class TestStreamHandler(unittest.TestCase):
             "timestamp": datetime.now(),
             "parent": None,
             "extra": {},
+            "tags": [],
+            "category": None,
         }
-        formatted: TurboPrintOutput = {
-            "colored_console": "[INFO] Test",
-            "standard_file": "[INFO] Test",
-        }
-        handler.handle(record, formatted, sys.stdout, sys.stderr)
+        await handler.handle(TurboPrint(), record, sys.stdout, sys.stderr)
 
 
 class TestFileHandler(unittest.TestCase):
-    def test_handle(self) -> None:
+    async def test_handle(self) -> None:
         with TemporaryDirectory() as tmpdir:
             handler = FileHandler(Path(tmpdir), "root_{index}")
             record: LogRecord = {
@@ -39,12 +38,8 @@ class TestFileHandler(unittest.TestCase):
                 "timestamp": datetime.now(),
                 "parent": None,
                 "extra": {},
+                "tags": [],
+                "category": None,
             }
-            formatted: TurboPrintOutput = {
-                "colored_console": "[INFO] Test",
-                "standard_file": "[INFO] Test",
-            }
-            get_event_loop().run_until_complete(
-                handler.handle(record, formatted, sys.stdout, sys.stderr)
-            )
+            await handler.handle(TurboPrint(), record, sys.stdout, sys.stderr)
             self.assertTrue((Path(tmpdir) / "root_1.log").exists())

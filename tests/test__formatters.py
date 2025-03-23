@@ -4,7 +4,7 @@ from src.formatters import DefaultFormatter, JSONFormatter
 from src.my_types import LogLevel, LogRecord
 
 class TestDefaultFormatter(unittest.TestCase):
-    def test_format(self) -> None:
+    async def test_format(self) -> None:
         formatter = DefaultFormatter()
         record: LogRecord = {
             "message": "Test",
@@ -14,12 +14,14 @@ class TestDefaultFormatter(unittest.TestCase):
             "timestamp": datetime.now(),
             "parent": None,
             "extra": {},
+            "tags": [],
+            "category": None
         }
-        formatted = formatter.format(record)
+        formatted = await formatter.format(record)
         self.assertIn("INFO", formatted)
 
 class TestJSONFormatter(unittest.TestCase):
-    def test_format(self) -> None:
+    async def test_format(self) -> None:
         formatter = JSONFormatter()
         record: LogRecord = {
             "message": "Test",
@@ -29,6 +31,8 @@ class TestJSONFormatter(unittest.TestCase):
             "timestamp": datetime.now(),
             "parent": None,
             "extra": {},
+            "tags": [],
+            "category": None
         }
-        formatted = formatter.format(record)
+        formatted = await formatter.format(record)
         self.assertIn('"level": "INFO"', formatted)

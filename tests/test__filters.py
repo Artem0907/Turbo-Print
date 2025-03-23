@@ -14,22 +14,24 @@ class TestFilters(unittest.TestCase):
             timestamp=datetime.now(),
             parent=None,
             extra={},
+            tags=[],
+            category=None,
         )
 
-    def test_level_filter(self) -> None:
+    async def test_level_filter(self) -> None:
         filter = LevelFilter(LogLevel.WARNING)
         self.record["level"] = LogLevel.ERROR
-        self.assertTrue(filter.filter(self.record))
+        self.assertTrue(await filter.filter(self.record))
 
         self.record["level"] = LogLevel.DEBUG
-        self.assertFalse(filter.filter(self.record))
+        self.assertFalse(await filter.filter(self.record))
 
-    def test_regex_filter(self) -> None:
+    async def test_regex_filter(self) -> None:
         filter = RegexFilter(r"Test")
-        self.assertTrue(filter.filter(self.record))
+        self.assertTrue(await filter.filter(self.record))
 
         filter_inverted = RegexFilter(r"Test", invert=True)
-        self.assertFalse(filter_inverted.filter(self.record))
+        self.assertFalse(await filter_inverted.filter(self.record))
 
     def test_time_filter(self) -> None:
         from datetime import time
