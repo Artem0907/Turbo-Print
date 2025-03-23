@@ -20,13 +20,14 @@ jobs:
             # Шаг 3: Установить зависимости
             - name: Install dependencies
               run: |
-                  pip install -r requirements.txt  # Установка зависимостей из файла
-                  pip install ruff mypy bandit safety black isort coverage  # Установка инструментов
+                  pip install --upgrade pip
+                  pip install -r requirements.txt
+                  pip install ruff mypy bandit safety black isort coverage
 
             # Шаг 4: Запустить тесты с использованием unittest
             - name: Run tests
               run: |
-                  python -m unittest discover -s tests -p "test__*.py" -v  # Запуск тестов из папки tests/
+                  python -m unittest discover -s tests -p "test__*.py" -v
 
             # Шаг 5: Проверить покрытие кода
             - name: Check coverage
@@ -37,17 +38,17 @@ jobs:
             # Шаг 6: Статический анализ
             - name: Run static analysis
               run: |
-                  ruff check .  # Проверка стиля и качества кода
-                  mypy src/    # Проверка типов
+                  ruff check .
+                  mypy src/
 
             # Шаг 7: Проверка безопасности
             - name: Security check
               run: |
-                  bandit -r src/  # Поиск уязвимостей в коде
-                  safety check --full-report  # Проверка уязвимостей в зависимостях
+                  bandit -r src/
+                  safety check --full-report
 
             # Шаг 8: Форматирование кода
             - name: Format code
               run: |
-                  black --check .  # Проверка форматирования с помощью black
-                  isort --check .  # Проверка сортировки импортов
+                  black --check .
+                  isort --check .
