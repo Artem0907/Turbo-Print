@@ -7,13 +7,12 @@ from asyncio import (
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
-from dotenv import load_dotenv
 from functools import wraps
 from logging import Logger
 from pathlib import Path
 from time import time
 from traceback import format_exc
-from typing import ClassVar, Optional, Callable, Any, TextIO, TypeVar, cast
+from typing import ClassVar, Optional, Any, TextIO
 import sys
 
 # from config_loader import ConfigLoader
@@ -31,7 +30,7 @@ from src.inner_middlewares import BaseInnerMiddleware
 from src.localization import Localization
 from src.metrics import Metrics
 from src.migration import LoggingAdapter
-from src.my_types import LogLevel, TurboPrintOutput, LogRecord, TurboPrintConfig
+from src.my_types import LogLevel, TurboPrintOutput, LogRecord
 from src.outer_middlewares import BaseOuterMiddleware
 from src.realtime import RealTimeLogger
 

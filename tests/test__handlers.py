@@ -1,4 +1,3 @@
-from asyncio import get_event_loop
 import unittest
 import sys
 from pathlib import Path

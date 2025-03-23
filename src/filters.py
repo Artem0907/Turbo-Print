@@ -285,10 +285,14 @@ class CompositeFilter(BaseFilter):
         Returns:
             bool: Результат фильтрации.
         """
+        filters = []
+        for filter in self.filters:
+            filters.append(await filter.filter(record))
+
         if self.mode == "AND":
-            result = all((await f.filter(record)) for f in self.filters)
+            result = all(filters.copy())
         elif self.mode == "OR":
-            result = any((await f.filter(record)) for f in self.filters)
+            result = any(filters.copy())
         else:
             result = False
         await self.log(

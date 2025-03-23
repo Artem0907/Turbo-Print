@@ -5,7 +5,6 @@ from babel.numbers import format_number
 
 if TYPE_CHECKING:
     from src.turbo_print import TurboPrint
-from src.my_types import LogLevel
 
 
 class Localization:

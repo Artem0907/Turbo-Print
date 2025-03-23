@@ -3,7 +3,6 @@ from datetime import datetime
 from prometheus_client import Counter, Gauge, start_http_server
 if TYPE_CHECKING:
     from src.turbo_print import TurboPrint
-from src.my_types import LogLevel
 
 
 class Metrics:

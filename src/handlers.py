@@ -5,11 +5,9 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from pathlib import Path
 from pymongo import MongoClient
-from rarfile import RarFile
 from typing import TYPE_CHECKING, Any, Coroutine, Literal, Optional, TextIO
 import aiofiles
 import aiofiles.os
-import rarfile
 
 from src.compression import ZipCompressor, RarCompressor
 from src.filters import BaseFilter
@@ -475,7 +473,7 @@ class FileHandler(BaseHandler):
     async def _rotate(self) -> None:
         """Асинхронная ротация файлов логов."""
         files = sorted(await aiofiles.os.listdir(self.file_directory), reverse=True)
-        for file in files[self.backup_count :]:
+        for file in files[1:]:
             await aiofiles.os.remove(file)
 
     async def _get_current_file(self) -> Path:
