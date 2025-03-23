@@ -1,0 +1,53 @@
+name: CI  # Название workflow
+on: [push, pull_request]  # Триггеры: запуск при push или pull request
+
+jobs:
+  test:  # Задача для запуска тестов
+    runs-on: ubuntu-latest  # ОС для выполнения задачи
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]  # Матрица версий Python
+    steps:
+      # Шаг 1: Получить код из репозитория
+      - uses: actions/checkout@v4
+
+      # Шаг 2: Установить Python (версия берется из матрицы)
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Шаг 3: Установить зависимости
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt  # Установка зависимостей из файла
+          pip install ruff mypy bandit safety black isort coverage  # Установка инструментов
+
+      # Шаг 4: Запустить тесты с использованием unittest
+      - name: Run tests
+        run: |
+          python -m unittest discover -s tests -v  # Запуск тестов из папки tests/
+
+      # Шаг 5: Проверить покрытие кода
+      - name: Check coverage
+        run: |
+          coverage run -m unittest discover -s tests -v
+          coverage report -m
+
+      # Шаг 6: Статический анализ
+      - name: Run static analysis
+        run: |
+          ruff check .  # Проверка стиля и качества кода
+          mypy src/    # Проверка типов
+
+      # Шаг 7: Проверка безопасности
+      - name: Security check
+        run: |
+          bandit -r src/  # Поиск уязвимостей в коде
+          safety check --full-report  # Проверка уязвимостей в зависимостях
+
+      # Шаг 8: Форматирование кода
+      - name: Format code
+        run: |
+          black --check .  # Проверка форматирования с помощью black
+          isort --check .  # Проверка сортировки импортов
