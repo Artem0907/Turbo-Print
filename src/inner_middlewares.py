@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, TextIO, Callable, Dict, Any, Optional
-from src.my_types import LogRecord, LogLevel
-from src.handlers import BaseHandler
+
+from .my_types import LogRecord, LogLevel
+from .handlers import BaseHandler
 import json
 
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint
+    from .turbo_print import TurboPrint
 
 __all__ = [
     "BaseInnerMiddleware",

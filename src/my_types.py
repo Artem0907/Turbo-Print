@@ -8,7 +8,7 @@ from pathlib import Path
 from yaml import safe_load as yaml_safe_load
 
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint
+    from .turbo_print import TurboPrint
 
 
 class TurboPrintOutput(TypedDict):

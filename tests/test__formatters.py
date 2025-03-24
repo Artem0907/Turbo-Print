@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
-from src.formatters import DefaultFormatter, JSONFormatter
-from src.my_types import LogLevel, LogRecord
+from ..src.formatters import DefaultFormatter, JSONFormatter
+from ..src.my_types import LogLevel, LogRecord
 
 class TestDefaultFormatter(unittest.TestCase):
     async def test_format(self) -> None:

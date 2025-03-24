@@ -7,8 +7,8 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from rarfile import RarFile
 
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint
-from src.my_types import LogLevel
+    from .turbo_print import TurboPrint
+from .my_types import LogLevel
 
 
 class BaseCompressor(ABC):

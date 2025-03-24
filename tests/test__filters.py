@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
-from src.my_types import LogRecord, LogLevel
-from src.filters import LevelFilter, RegexFilter, TimeFilter
+from ..src.my_types import LogRecord, LogLevel
+from ..src.filters import LevelFilter, RegexFilter, TimeFilter
 
 
 class TestFilters(unittest.TestCase):

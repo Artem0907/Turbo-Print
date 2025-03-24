@@ -4,7 +4,7 @@ from babel.dates import format_datetime
 from babel.numbers import format_number
 
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint
+    from .turbo_print import TurboPrint
 
 
 class Localization:

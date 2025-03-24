@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Dict, Any, Optional
 from datetime import datetime
 from prometheus_client import Counter, Gauge, start_http_server
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint
+    from .turbo_print import TurboPrint
 
 
 class Metrics:

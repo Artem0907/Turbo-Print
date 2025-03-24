@@ -16,23 +16,23 @@ from typing import ClassVar, Optional, Any, TextIO
 import sys
 
 # from config_loader import ConfigLoader
-from src import formatters, handlers, filters
-from src.filters import BaseFilter
-from src.formatters import BaseFormatter, DefaultFormatter
-from src.handlers import (
+from . import formatters, handlers, filters
+from .filters import BaseFilter
+from .formatters import BaseFormatter, DefaultFormatter
+from .handlers import (
     BaseHandler,
     StreamHandler,
     BufferedFileHandler,
     FileHandler,
     TimedRotatingFileHandler,
 )
-from src.inner_middlewares import BaseInnerMiddleware
-from src.localization import Localization
-from src.metrics import Metrics
-from src.migration import LoggingAdapter
-from src.my_types import LogLevel, TurboPrintOutput, LogRecord
-from src.outer_middlewares import BaseOuterMiddleware
-from src.realtime import RealTimeLogger
+from .inner_middlewares import BaseInnerMiddleware
+from .localization import Localization
+from .metrics import Metrics
+from .migration import LoggingAdapter
+from .my_types import LogLevel, TurboPrintOutput, LogRecord
+from .outer_middlewares import BaseOuterMiddleware
+from .realtime import RealTimeLogger
 
 
 try:

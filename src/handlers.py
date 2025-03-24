@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, Any, Coroutine, Literal, Optional, TextIO
 import aiofiles
 import aiofiles.os
 
-from src.compression import ZipCompressor, RarCompressor
-from src.filters import BaseFilter
-from src.formatters import BaseFormatter
-from src.my_types import LogRecord
+from .compression import ZipCompressor, RarCompressor
+from .filters import BaseFilter
+from .formatters import BaseFormatter
+from .my_types import LogRecord
 
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint
+    from .turbo_print import TurboPrint
 
 try:
     _DEFAULT_ASYNC_LOOP = get_running_loop()

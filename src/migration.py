@@ -2,8 +2,8 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint, LogLevel
-from src.handlers import StreamHandler, FileHandler
+    from .turbo_print import TurboPrint, LogLevel
+from .handlers import StreamHandler, FileHandler
 from pathlib import Path
 
 

@@ -6,8 +6,8 @@ from flask_socketio import SocketIO
 from colorama import Fore, Style
 
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint
-from src.my_types import LogLevel
+    from .turbo_print import TurboPrint
+from .my_types import LogLevel
 
 
 class RealTimeLogger:

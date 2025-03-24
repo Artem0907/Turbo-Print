@@ -9,11 +9,11 @@ from string import Formatter
 from datetime import datetime
 import json
 
-from src.my_types import LogRecord, LogLevel
-from src.localization import Localization
+from .my_types import LogRecord, LogLevel
+from .localization import Localization
 
 if TYPE_CHECKING:
-    from src.turbo_print import TurboPrint
+    from .turbo_print import TurboPrint
 
 __all__ = [
     "BaseFormatter",
