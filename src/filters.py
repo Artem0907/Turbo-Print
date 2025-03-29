@@ -5,8 +5,6 @@ from typing import (
     Protocol,
     runtime_checkable,
     Literal,
-    List,
-    Dict,
     Any,
     Optional,
     TYPE_CHECKING,
@@ -76,7 +74,7 @@ class BaseFilter(metaclass=ABCMeta):
         if self.logger and self.log_level:
             self.logger(message, self.log_level)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Сериализует конфигурацию фильтра в словарь.
 
         Returns:
@@ -258,7 +256,7 @@ class CompositeFilter(BaseFilter):
 
     def __init__(
         self,
-        filters: List[BaseFilter],
+        filters: list[BaseFilter],
         mode: Literal["AND", "OR"] = "AND",
         priority: int = 0,
         logger: Optional["TurboPrint"] = None,
@@ -306,7 +304,7 @@ class TagFilter(BaseFilter):
 
     def __init__(
         self,
-        tags: List[str],
+        tags: list[str],
         match_all: bool = True,
         priority: int = 0,
         logger: Optional["TurboPrint"] = None,
@@ -426,7 +424,7 @@ class KeywordFilter(BaseFilter):
 
     def __init__(
         self,
-        keywords: List[str],
+        keywords: list[str],
         case_sensitive: bool = False,
         priority: int = 0,
         logger: Optional["TurboPrint"] = None,

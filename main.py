@@ -2,12 +2,14 @@ from faker import Faker
 from pathlib import Path
 from sys import maxsize
 
+from src.localization import Localization
 from src.my_types import LogLevel, LogRecord
 from src.turbo_print import TurboPrint
 from src import filters, formatters, handlers, inner_middlewares, outer_middlewares
 
 
 root_logger = TurboPrint.get_logger()
+root_logger.localization = Localization("ru")
 root_logger.level = LogLevel.NOTSET
 path = Path("./tests") / "test__handlers.py"
 print(

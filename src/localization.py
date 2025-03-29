@@ -1,6 +1,7 @@
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union
 from datetime import datetime
-from babel.dates import format_datetime
+from babel import Locale
+from babel.dates import format_datetime, get_timezone
 from babel.numbers import format_number
 
 if TYPE_CHECKING:
@@ -11,7 +12,9 @@ class Localization:
     """Класс для поддержки локализации сообщений логов с асинхронными методами."""
 
     def __init__(
-        self, locale: str = "en", realtime_logger: Optional["TurboPrint"] = None
+        self,
+        locale: Literal["ru", "en"] = "ru",
+        realtime_logger: Optional["TurboPrint"] = None,
     ):
         """
         Args:
@@ -21,20 +24,30 @@ class Localization:
         self._translation_cache = {}
         self.locale = locale
         self.realtime_logger = realtime_logger
-        self.translations: Dict[str, Dict[str, str]] = {
+        self.translations: dict[str, dict[str, str]] = {
             "en": {
-                "error": "Error",
-                "warning": "Warning",
-                "info": "Info",
+                "notset": "Not set",
+                "trace": "Trace",
                 "debug": "Debug",
+                "info": "Info",
+                "notice": "Notice",
+                "success": "Success",
+                "warning": "Warning",
+                "error": "Error",
                 "critical": "Critical",
+                "security": "Security",
             },
             "ru": {
-                "error": "Ошибка",
-                "warning": "Предупреждение",
+                "notset": "Не установлен",
+                "trace": "Трассировка",
+                "debug": "Логирование",
                 "info": "Информация",
-                "debug": "Отладка",
+                "notice": "Сообщение",
+                "success": "Успешно",
+                "warning": "Предупреждение",
+                "error": "Ошибка",
                 "critical": "Критическая ошибка",
+                "security": "Безопасность",
             },
         }
 
@@ -67,7 +80,7 @@ class Localization:
             else self._translation_cache[cache_key]
         )
 
-    def format_datetime(self, dt: datetime, format: str = "medium") -> str:
+    def format_datetime(self, dt: datetime, format: str = "short") -> str:
         """Форматирует дату и время в соответствии с локалью.
 
         Args:

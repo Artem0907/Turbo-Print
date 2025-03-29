@@ -4,9 +4,8 @@ from colorama import Style
 from yaml import dump as yaml_dump
 from ujson import dumps as json_dump
 from csv import DictWriter
-from typing import Optional, Any, Dict, List, TYPE_CHECKING
+from typing import Optional, Any, TYPE_CHECKING
 from string import Formatter
-from datetime import datetime
 import json
 
 from src.my_types import LogRecord, LogLevel
@@ -81,7 +80,7 @@ class BaseFormatter(ABC):
         if self.logger and self.log_level:
             self.logger(message, self.log_level)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Сериализует конфигурацию форматера в словарь.
 
         Returns:
@@ -336,7 +335,7 @@ class CustomFormatter(BaseFormatter):
     def __init__(
         self,
         fmt: str,
-        macros: Optional[Dict[str, Any]] = None,
+        macros: Optional[dict[str, Any]] = None,
         priority: int = 0,
         logger: Optional["TurboPrint"] = None,
         log_level: Optional["LogLevel"] = None,

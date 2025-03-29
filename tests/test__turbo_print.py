@@ -1,6 +1,6 @@
 import unittest
-from src.turbo_print import TurboPrint
-from src.my_types import LogLevel
+from ..src.turbo_print import TurboPrint
+from ..src.my_types import LogLevel
 
 class TestTurboPrint(unittest.TestCase):
     def test_logger_creation(self) -> None:

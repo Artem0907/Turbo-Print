@@ -3,9 +3,9 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from tempfile import TemporaryDirectory
-from src.handlers import StreamHandler, FileHandler
-from src.my_types import LogLevel, LogRecord, TurboPrintOutput
-from src.turbo_print import TurboPrint
+from ..src.handlers import StreamHandler, FileHandler
+from ..src.my_types import LogLevel, LogRecord, TurboPrintOutput
+from ..src.turbo_print import TurboPrint
 
 
 class TestStreamHandler(unittest.TestCase):

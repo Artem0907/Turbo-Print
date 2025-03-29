@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from datetime import datetime
 from prometheus_client import Counter, Gauge, start_http_server
 
@@ -57,7 +57,7 @@ class Metrics:
             )
         self.error_count.inc()
 
-    async def get_metrics(self) -> Dict[str, Any]:
+    async def get_metrics(self) -> dict[str, Any]:
         """Асинхронное получение текущих метрик в виде словаря.
 
         Returns:

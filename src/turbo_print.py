@@ -17,6 +17,7 @@ import sys
 
 # from config_loader import ConfigLoader
 from src import formatters, handlers, filters
+from src import localization
 from src.filters import BaseFilter
 from src.formatters import BaseFormatter, DefaultFormatter
 from src.handlers import (

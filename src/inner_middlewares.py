@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, TextIO, Callable, Dict, Any, Optional
+from typing import TYPE_CHECKING, TextIO, Callable, Any, Optional
+
 from src.my_types import LogRecord, LogLevel
 from src.handlers import BaseHandler
 import json
@@ -67,7 +68,7 @@ class BaseInnerMiddleware(ABC):
         if self.logger and self.log_level:
             self.logger(message, self.log_level)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Сериализует конфигурацию middleware в словарь.
 
         Returns:
@@ -100,7 +101,7 @@ class ContextMiddleware(BaseInnerMiddleware):
 
     def __init__(
         self,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         priority: int = 0,
         logger: Optional["TurboPrint"] = None,
         log_level: Optional["LogLevel"] = None,
@@ -190,7 +191,7 @@ class MetadataMiddleware(BaseInnerMiddleware):
 
     def __init__(
         self,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         priority: int = 0,
         logger: Optional["TurboPrint"] = None,
         log_level: Optional["LogLevel"] = None,

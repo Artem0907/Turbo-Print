@@ -22,10 +22,10 @@ class BaseCompressor(ABC):
         try:
             if not await self._validate_source(source):
                 return
-            
+
             await self._compress_impl(source, destination)
             await self._post_compress(source)
-            
+
         except Exception as e:
             await self._handle_error(e, source)
             raise CompressionError(
@@ -33,8 +33,8 @@ class BaseCompressor(ABC):
                 context={
                     "source": str(source),
                     "destination": str(destination),
-                    "error": str(e)
-                }
+                    "error": str(e),
+                },
             )
 
     async def _validate_source(self, source: Path) -> bool:

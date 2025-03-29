@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Any, TYPE_CHECKING
 from traceback import format_exc
 from datetime import datetime
 from src.my_types import LogLevel
@@ -24,7 +24,7 @@ class CustomException(Exception):
         message: str,
         logger: Optional["TurboPrint"] = None,
         level: LogLevel = LogLevel.ERROR,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -67,7 +67,7 @@ class CustomException(Exception):
                 **self.context,
             )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Возвращает исключение в виде словаря.
 
         Returns:
@@ -106,7 +106,7 @@ class CompressionError(CustomException):
         message: str,
         logger: Optional["TurboPrint"] = None,
         level: LogLevel = LogLevel.ERROR,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ):
         super().__init__(message, logger, level, context)
 
@@ -119,7 +119,7 @@ class DecompressionError(CustomException):
         message: str,
         logger: Optional["TurboPrint"] = None,
         level: LogLevel = LogLevel.ERROR,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ):
         super().__init__(message, logger, level, context)
 
@@ -132,7 +132,7 @@ class LoggingError(CustomException):
         message: str,
         logger: Optional["TurboPrint"] = None,
         level: LogLevel = LogLevel.ERROR,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ):
         super().__init__(message, logger, level, context)
 
@@ -145,7 +145,7 @@ class SerializationError(CustomException):
         message: str,
         logger: Optional["TurboPrint"] = None,
         level: LogLevel = LogLevel.ERROR,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
     ):
         super().__init__(message, logger, level, context)
 

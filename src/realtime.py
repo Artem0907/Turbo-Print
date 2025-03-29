@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from threading import Thread
 from queue import Queue
 from flask import Flask, render_template
@@ -52,7 +52,7 @@ class RealTimeLogger:
 
         self.socketio.run(app, host=host, port=port)
 
-    async def log_to_terminal(self, record: Dict[str, Any]) -> None:
+    async def log_to_terminal(self, record: dict[str, Any]) -> None:
         """Асинхронное логирование записи в терминал с подсветкой.
 
         Args:
@@ -69,7 +69,7 @@ class RealTimeLogger:
         message = f"{level_color}{record['message']}{Style.RESET_ALL}"
         print(message)
 
-    async def log(self, record: Dict[str, Any]) -> None:
+    async def log(self, record: dict[str, Any]) -> None:
         """Асинхронное добавление записи в очередь для логирования в реальном времени.
 
         Args:
@@ -95,7 +95,7 @@ class CustomRealTimeLogger(RealTimeLogger):
         super().__init__(logger)
         self.custom_queue = Queue()
 
-    async def log_custom(self, record: Dict[str, Any]) -> None:
+    async def log_custom(self, record: dict[str, Any]) -> None:
         """Асинхронное добавление записи в пользовательскую очередь.
 
         Args:
