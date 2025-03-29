@@ -129,6 +129,7 @@ class TurboPrint:
         metrics: Optional[Metrics] = None,
         localization: Optional[Localization] = None,
         realtime_logger: Optional[RealTimeLogger] = None,
+        time_format: str = "%d/%m/%Y %H:%M:%S",
     ) -> None:
         """Инициализация логгера.
 
@@ -180,6 +181,7 @@ class TurboPrint:
         self._category: Optional[str] = None
         self.localization = localization or Localization()
         self.realtime_logger = realtime_logger
+        self.time_format = time_format
 
         if self.name in TurboPrint._registry:
             stderr.write(f"ValueError: Логгер '{self.name}' уже существует" + "\n")
@@ -250,7 +252,7 @@ class TurboPrint:
                 {
                     "message": record["message"],
                     "level": record["level"].name,
-                    "timestamp": record["timestamp"].isoformat(),
+                    "timestamp": record["timestamp"],
                     **record["extra"],
                 }
             )
@@ -308,7 +310,7 @@ class TurboPrint:
                         await self.metrics.error_occurred()
         finally:
             if self.metrics:
-                processing_time = (datetime.now() - start_time).total_seconds()
+                processing_time = (datetime.now() - start_time).seconds
                 await self.metrics.log_processed(record["level"].name, processing_time)
 
     def set_context(self, **kwargs: Any) -> None:

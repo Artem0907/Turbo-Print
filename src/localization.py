@@ -18,6 +18,7 @@ class Localization:
             locale (str): Локаль по умолчанию (например, "en" для английского, "ru" для русского).
             realtime_logger (Optional[TurboPrint]): Логгер для записи в реальном времени.
         """
+        self._translation_cache = {}
         self.locale = locale
         self.realtime_logger = realtime_logger
         self.translations: Dict[str, Dict[str, str]] = {
@@ -35,21 +36,6 @@ class Localization:
                 "debug": "Отладка",
                 "critical": "Критическая ошибка",
             },
-            # Добавьте другие языки по необходимости
-            "es": {
-                "error": "Error",
-                "warning": "Advertencia",
-                "info": "Información",
-                "debug": "Depuración",
-                "critical": "Crítico",
-            },
-            "fr": {
-                "error": "Erreur",
-                "warning": "Avertissement",
-                "info": "Information",
-                "debug": "Débogage",
-                "critical": "Critique",
-            },
         }
 
     async def translate(self, key: str, **kwargs: Union[str, int, float]) -> str:
@@ -62,17 +48,24 @@ class Localization:
         Returns:
             str: Переведенное значение.
         """
-        if self.realtime_logger:
-            await self.realtime_logger.log(
-                {
-                    "message": f"Перевод ключа: {key}",
-                    "level": "DEBUG",
-                    "timestamp": datetime.now().isoformat(),
-                }
-            )
+        cache_key = f"{key}_{self.locale}_{str(kwargs)}"
+        if cache_key not in self._translation_cache:
+            if self.realtime_logger:
+                await self.realtime_logger.log(
+                    {
+                        "message": f"Перевод ключа: {key}",
+                        "level": "DEBUG",
+                        "timestamp": datetime.now(),
+                    }
+                )
 
-        translation = self.translations.get(self.locale, {}).get(key, key)
-        return translation.format(**kwargs) if kwargs else translation
+            translation = self.translations.get(self.locale, {}).get(key, key)
+            self._translation_cache[cache_key] = translation
+        return (
+            self._translation_cache[cache_key].format(**kwargs)
+            if kwargs
+            else self._translation_cache[cache_key]
+        )
 
     def format_datetime(self, dt: datetime, format: str = "medium") -> str:
         """Форматирует дату и время в соответствии с локалью.

@@ -8,6 +8,7 @@ from pymongo import MongoClient
 from typing import TYPE_CHECKING, Any, Coroutine, Literal, Optional, TextIO
 import aiofiles
 import aiofiles.os
+from aiofiles.threadpool.text import AsyncTextIOWrapper
 
 from src.compression import ZipCompressor, RarCompressor
 from src.filters import BaseFilter
@@ -115,7 +116,7 @@ class DatabaseHandler(BaseHandler):
         log_data = {
             "message": record["message"],
             "level": record["level"].name,
-            "timestamp": record["timestamp"].isoformat(),
+            "timestamp": record["timestamp"],
             **record["extra"],
         }
 
@@ -427,6 +428,7 @@ class FileHandler(BaseHandler):
         self.max_size = max_size
         self.max_lines = max_lines
         self._lock = Lock()
+        self._file_cache: dict[Path, AsyncTextIOWrapper] = {}
         self.current_file = _DEFAULT_ASYNC_LOOP.run_until_complete(
             self._get_current_file()
         )
@@ -462,8 +464,11 @@ class FileHandler(BaseHandler):
                     if self.formatter
                     else await logger.formatter.format(record)
                 )
-                async with aiofiles.open(self.current_file, "a", encoding="utf-8") as f:
-                    await f.write(formatted + "\n")
+                if self.current_file not in self._file_cache:
+                    self._file_cache[self.current_file] = await aiofiles.open(
+                        self.current_file, "a", encoding="utf-8"
+                    )
+                await self._file_cache[self.current_file].write(formatted + "\n")
             except OSError as e:
                 stderr.write(f"OSError: Ошибка записи в файл: {str(e)}")
                 stderr.flush()
@@ -482,6 +487,7 @@ class FileHandler(BaseHandler):
         Returns:
             Path: Текущий файл для записи.
         """
+
         self.file_directory.mkdir(parents=True, exist_ok=True)
         stamp = 1
         while True:

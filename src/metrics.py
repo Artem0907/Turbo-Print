@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Dict, Any, Optional
 from datetime import datetime
 from prometheus_client import Counter, Gauge, start_http_server
+
 if TYPE_CHECKING:
     from src.turbo_print import TurboPrint
 
@@ -38,7 +39,7 @@ class Metrics:
                 {
                     "message": f"Запись лога уровня {level} обработана за {processing_time:.2f} секунд",
                     "level": "INFO",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(),
                 }
             )
         self.log_count.labels(level=level).inc()
@@ -51,7 +52,7 @@ class Metrics:
                 {
                     "message": "Произошла ошибка",
                     "level": "ERROR",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(),
                 }
             )
         self.error_count.inc()
@@ -91,6 +92,6 @@ class CustomMetrics(Metrics):
                 {
                     "message": "Пользовательский счетчик увеличен",
                     "level": "INFO",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(),
                 }
             )

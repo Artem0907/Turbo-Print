@@ -8,6 +8,7 @@ from rarfile import RarFile
 
 if TYPE_CHECKING:
     from src.turbo_print import TurboPrint
+from src.exceptions import CompressionError
 from src.my_types import LogLevel
 
 
@@ -18,14 +19,23 @@ class BaseCompressor(ABC):
         self.logger = logger
 
     async def compress(self, source: Path, destination: Path) -> None:
-        if not await self._validate_source(source):
-            return
-
         try:
+            if not await self._validate_source(source):
+                return
+            
             await self._compress_impl(source, destination)
             await self._post_compress(source)
+            
         except Exception as e:
             await self._handle_error(e, source)
+            raise CompressionError(
+                f"Failed to compress {source}",
+                context={
+                    "source": str(source),
+                    "destination": str(destination),
+                    "error": str(e)
+                }
+            )
 
     async def _validate_source(self, source: Path) -> bool:
         if not source.exists():

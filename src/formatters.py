@@ -187,7 +187,7 @@ class JSONFormatter(BaseFormatter):
             "name": record["name"],
             "level": record["level"].name,
             "prefix": record["prefix"] or record["name"],
-            "timestamp": record["timestamp"].isoformat(),
+            "timestamp": record["timestamp"],
             "parent": repr(record["parent"]),
         }
         formatted_message = json_dump(log_data, ensure_ascii=False)
@@ -212,7 +212,7 @@ class XMLFormatter(BaseFormatter):
             "name": record["name"],
             "level": record["level"].name,
             "prefix": record["prefix"] or record["name"],
-            "timestamp": record["timestamp"].isoformat(),
+            "timestamp": record["timestamp"],
             "parent": repr(record["parent"]),
         }
         formatted_message = (
@@ -239,7 +239,7 @@ class YAMLFormatter(BaseFormatter):
             "name": record["name"],
             "level": record["level"].name,
             "prefix": record["prefix"] or record["name"],
-            "timestamp": record["timestamp"].isoformat(),
+            "timestamp": record["timestamp"],
             "parent": repr(record["parent"]),
         }
         formatted_message = yaml_dump(log_data, default_flow_style=False)
@@ -264,7 +264,7 @@ class CSVFormatter(BaseFormatter):
             "name": record["name"],
             "level": record["level"].name,
             "prefix": record["prefix"] or record["name"],
-            "timestamp": record["timestamp"].isoformat(),
+            "timestamp": record["timestamp"],
             "parent": repr(record["parent"]),
         }
         output = StringIO()
@@ -293,7 +293,7 @@ class HTMLFormatter(BaseFormatter):
             "name": record["name"],
             "level": record["level"].name,
             "prefix": record["prefix"] or record["name"],
-            "timestamp": record["timestamp"].isoformat(),
+            "timestamp": record["timestamp"],
             "parent": repr(record["parent"]),
         }
         formatted_message = (
@@ -322,7 +322,7 @@ class MarkdownFormatter(BaseFormatter):
             "name": record["name"],
             "level": record["level"].name,
             "prefix": record["prefix"] or record["name"],
-            "timestamp": record["timestamp"].isoformat(),
+            "timestamp": record["timestamp"],
             "parent": repr(record["parent"]),
         }
         formatted_message = "\n".join(f"**{k}:** {v}" for k, v in log_data.items())

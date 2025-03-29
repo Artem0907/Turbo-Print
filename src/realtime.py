@@ -18,7 +18,7 @@ class RealTimeLogger:
         Args:
             logger (Optional[TurboPrint]): Логгер для записи ошибок.
         """
-        self.log_queue = Queue()
+        self.log_queue = Queue(maxsize=1000)
         self.socketio = None
         self.thread = None
         self.logger = logger

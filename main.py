@@ -9,6 +9,17 @@ from src import filters, formatters, handlers, inner_middlewares, outer_middlewa
 
 root_logger = TurboPrint.get_logger()
 root_logger.level = LogLevel.NOTSET
+path = Path("./tests") / "test__handlers.py"
+print(
+    f'path[{path.__class__.__name__}] = "{path}"',
+    f'path.__str__[{path.__str__().__class__.__name__}] = "{path.__str__()}"',
+    f'path.__repr__[{path.__repr__().__class__.__name__}] = "{path.__repr__()}"',
+    f'path.root[{path.root.__class__.__name__}] = "{path.root}"',
+    f'path.parent[{path.parent.__class__.__name__}] = "{path.parent}"',
+    f'path.name[{path.name.__class__.__name__}] = "{path.name}"',
+    f'path.home[{path.home().__class__.__name__}] = "{path.home()}"',
+    sep="\n",
+)
 
 
 main_logger = TurboPrint(

@@ -52,7 +52,7 @@ class CustomException(Exception):
                 f"Исключение: {self.message}",
                 self.level,
                 stack_trace=self.stack_trace,
-                timestamp=self.timestamp.isoformat(),
+                timestamp=self.timestamp,
                 **self.context,
             )
 
@@ -63,7 +63,7 @@ class CustomException(Exception):
                 f"Исключение: {self.message}",
                 self.level,
                 stack_trace=self.stack_trace,
-                timestamp=self.timestamp.isoformat(),
+                timestamp=self.timestamp,
                 **self.context,
             )
 
@@ -77,7 +77,7 @@ class CustomException(Exception):
             "message": self.message,
             "level": self.level.name,
             "stack_trace": self.stack_trace,
-            "timestamp": self.timestamp.isoformat(),
+            "timestamp": self.timestamp,
             "context": self.context,
         }
 
