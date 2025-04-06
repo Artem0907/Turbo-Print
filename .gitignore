@@ -1,29 +1,47 @@
-# Byte-compiled / optimized / DLL files
+# cache
+## folders
 __pycache__/
-*.temp.*
+data/cache/
+data/temp/
+## files
 *.py[cod]
+*.temp.*
 
-# Distribution / packaging
-wheels/
+# packaging
+## folders
+.mypy_cache/
+.ropeproject/
+.ruff_cache/
+wheels/ 
+## files
+.ropeproject
 MANIFEST
+mypy_config.toml
 
-# Logs
-logs/
-*.log
-
-# UV
-uv.lock
-.python-version
-
-# Environments
+# environments
+## folders
+env/
+ENV/
+venv/
+## files
 .env
 .venv
-env/
-venv/
-ENV/
 
-# Rope project settings
-.ropeproject
+# logs
+## folders
+logs/
+## files
+*.log
 
-# Ruff stuff:
-.ruff_cache/
+# my
+## folders
+.vscode/
+function/turbo_print/
+## files
+TempCodeFile.py
+
+# uv
+## folders
+## files
+.python-version
+uv.lock

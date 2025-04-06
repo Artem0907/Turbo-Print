@@ -1,0 +1,28 @@
+[project]
+name = "Turbo-Print"
+version = "0.0.1"
+authors = [{ name = "Artem", email = "turboprint_support@gmail.com" }]
+description = "TurboPrint logger"
+requires-python = ">=3.13"
+dependencies = []
+readme = "README.md"
+license = { file = "LICENSE" }
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.4",
+]
+
+[project.urls]
+License = "https://github.com/Artem0907/Turbo-Print/tree/main/LICENSE"
+Changelog = "https://github.com/Artem0907/Turbo-Print/tree/main/CHANGELOG.md"
+Documentation = "https://github.com/Artem0907/Turbo-Print/tree/main/README.md"
+Homepage = "https://github.com/Artem0907/Turbo-Print/tree/main"
+Source = "https://github.com/Artem0907/Turbo-Print"
+
+[tool.pytest.ini_options]
+python_files = "tests/test__*.py"
+addopts = "--verbose"
