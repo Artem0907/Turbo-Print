@@ -1,12 +1,27 @@
 [project]
-name = "Turbo-Print"
+name = "turbo-print"
 version = "0.0.1"
 authors = [{ name = "Artem", email = "turboprint_support@gmail.com" }]
-description = "TurboPrint logger"
-requires-python = ">=3.13"
-dependencies = []
-readme = "README.md"
+description = "A high-performance Python logging library with async support"
+requires-python = ">=3.10"
+dependencies = [
+    "nest-asyncio>=1.6.0",
+]
+readme = "README.en.md"
 license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+]
 
 [dependency-groups]
 dev = [
@@ -14,15 +29,74 @@ dev = [
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "ruff>=0.11.4",
+    "pytest-asyncio>=0.23.5",
+    "pytest-cov>=4.1.0",
+]
+docs = [
+    "mkdocs>=1.5.3",
+    "mkdocs-material>=9.5.3",
+    "mkdocstrings>=0.24.0",
 ]
 
 [project.urls]
-License = "https://github.com/Artem0907/Turbo-Print/tree/main/LICENSE"
-Changelog = "https://github.com/Artem0907/Turbo-Print/tree/main/CHANGELOG.md"
-Documentation = "https://github.com/Artem0907/Turbo-Print/tree/main/README.md"
-Homepage = "https://github.com/Artem0907/Turbo-Print/tree/main"
+Homepage = "https://github.com/Artem0907/Turbo-Print"
 Source = "https://github.com/Artem0907/Turbo-Print"
+Issues = "https://github.com/Artem0907/Turbo-Print/issues"
+Discussions = "https://github.com/Artem0907/Turbo-Print/discussions"
+"Documentation (English)" = "https://github.com/Artem0907/Turbo-Print/blob/main/README.en.md"
+"Documentation (Русский)" = "https://github.com/Artem0907/Turbo-Print/blob/main/README.ru.md"
+"Changelog (English)" = "https://github.com/Artem0907/Turbo-Print/blob/main/CHANGELOG.en.md"
+"Changelog (Русский)" = "https://github.com/Artem0907/Turbo-Print/blob/main/CHANGELOG.ru.md"
+License = "https://github.com/Artem0907/Turbo-Print/blob/main/LICENSE"
 
 [tool.pytest.ini_options]
-python_files = "tests/test__*.py"
-addopts = "--verbose"
+python_files = "test__*.py"
+addopts = "--verbose --cov=turbo_print --cov-report=term-missing"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF", "C4", "T20"]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["S101", "PLR2004"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+include = '\.pyi?$'
+
+[tool.coverage.run]
+source = ["turbo_print"]
+omit = ["tests/*", "docs/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]

@@ -26,6 +26,7 @@ venv/
 ## files
 .env
 .venv
+.settings
 
 # logs
 ## folders
@@ -36,7 +37,6 @@ logs/
 # my
 ## folders
 .vscode/
-function/turbo_print/
 ## files
 TempCodeFile.py
 

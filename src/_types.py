@@ -9,27 +9,31 @@ if TYPE_CHECKING:
 
 
 __all__ = ("LogLevel", "LogRecord")
-_colors = {
+_colors: dict[str, str] = {
     "NOTSET": _fore_colors.WHITE,
     "INFO": _fore_colors.WHITE,
     "DEBUG": _fore_colors.WHITE,
     "WARNING": _fore_colors.WHITE,
     "CRITICAL": _fore_colors.WHITE,
+    "ERROR": _fore_colors.WHITE,
+    "TRACE": _fore_colors.WHITE,
 }
 
 
 class LogLevel(_IntEnum):
     NOTSET = 0
-    INFO = 0
-    DEBUG = 0
-    WARNING = 0
-    CRITICAL = 0
+    INFO = 1
+    DEBUG = 2
+    WARNING = 3
+    CRITICAL = 4
+    ERROR = 5
+    TRACE = 6
 
     WARN = WARNING
     FATAL = CRITICAL
 
     @property
-    def color(self):
+    def color(self) -> str:
         return _colors.get(self.name, _fore_colors.WHITE)
 
 

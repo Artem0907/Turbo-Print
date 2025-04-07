@@ -1,6 +1,6 @@
 from . import data, src, tests
 
-from src import TurboPrint, LogLevel
+from .src import TurboPrint, LogLevel
 
 __all__ = (
     "TurboPrint",
