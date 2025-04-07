@@ -6,22 +6,41 @@ description = "A high-performance Python logging library with async support"
 requires-python = ">=3.10"
 dependencies = [
     "nest-asyncio>=1.6.0",
+    "colorama>=0.4.6",
+    "typing-extensions>=4.5.0",
+    "aiofiles>=24.1.0",
 ]
-readme = "README.en.md"
-license = { file = "LICENSE" }
+readme = "README.md"
+license = { text = "MIT" }
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Operating System :: OS Independent",
-    "Framework :: AsyncIO",
-    "Typing :: Typed",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["turbo_print"]
+
+[tool.ruff]
+line-length = 80
+target-version = "py313"
+select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF", "C4", "T20"]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["S101", "PLR2004"]
 
 [dependency-groups]
 dev = [
@@ -55,18 +74,6 @@ addopts = "--verbose --cov=turbo_print --cov-report=term-missing"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 
-[tool.ruff]
-line-length = 88
-target-version = "py313"
-select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF", "C4", "T20"]
-ignore = []
-fixable = ["ALL"]
-unfixable = []
-
-[tool.ruff.per-file-ignores]
-"__init__.py" = ["F401"]
-"tests/*" = ["S101", "PLR2004"]
-
 [tool.mypy]
 python_version = "3.13"
 strict = true
@@ -83,7 +90,7 @@ warn_no_return = true
 warn_unreachable = true
 
 [tool.black]
-line-length = 88
+line-length = 80
 target-version = ["py313"]
 include = '\.pyi?$'
 
@@ -96,7 +103,7 @@ exclude_lines = [
     "pragma: no cover",
     "def __repr__",
     "raise NotImplementedError",
-    "if __name__ == .__main__.:",
+    "if __name__ == '__main__':",
     "pass",
     "raise ImportError",
 ]

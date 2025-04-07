@@ -1,86 +1,90 @@
-from abc import ABC as _ABC, abstractmethod as _abstractmethod
-from typing import ClassVar as _ClassVar
+# Standard library imports
+from abc import ABC as _ABC
+from abc import abstractmethod as _abstractmethod
 
-from colorama import Style as _Style
-
+# Local imports
 from ._types import LogRecord as _LogRecord
-
 
 __all__ = ("BaseFormatter", "DefaultFormatter")
 
 
 class BaseFormatter(_ABC):
-    """Base class for all formatters."""
-    
-    def __init__(self) -> None:
-        """Initialize the formatter."""
-        super().__init__()
+    """Base class for all log formatters."""
 
     @_abstractmethod
-    def standard_format(self, record: _LogRecord) -> str:
-        """Format a log record without colors.
-        
+    async def standard_format(self, record: _LogRecord) -> str:
+        """Format log record in standard format.
+
         Args:
-            record: Log record to format.
-            
+            record: Log record to format
+
         Returns:
-            str: Formatted log message.
+            str: Formatted string
         """
         raise NotImplementedError()
 
     @_abstractmethod
-    def colored_format(self, record: _LogRecord) -> str:
-        """Format a log record with colors.
-        
+    async def colored_format(self, record: _LogRecord) -> str:
+        """Format log record with color highlighting.
+
         Args:
-            record: Log record to format.
-            
+            record: Log record to format
+
         Returns:
-            str: Formatted and colored log message.
+            str: Formatted string with color highlighting
         """
         raise NotImplementedError()
 
 
 class DefaultFormatter(BaseFormatter):
-    """Default formatter implementation."""
-    
-    DEFAULT_FORMAT: _ClassVar[str] = "[{datetime:%d/%m/%Y %H:%M:%S}] {logger.prefix} | {level.name}[{level.value}]: {message}"
+    """Default formatter for logs."""
 
-    def __init__(self, format: str = DEFAULT_FORMAT) -> None:
-        """Initialize the default formatter.
-        
-        Args:
-            format: Format string to use when formatting log records.
-        """
-        super().__init__()
-        self._format = format
+    def __init__(self, format_string: str | None = None) -> None:
+        """Initialize the formatter.
 
-    def standard_format(self, record: _LogRecord) -> str:
-        """Format a log record without colors.
-        
         Args:
-            record: Log record to format.
-            
-        Returns:
-            str: Formatted log message.
+            format_string: Format string for logs
         """
-        logger = record["logger"]
-        prefix = logger.prefix or logger.name
-        return self._format.format(
-            datetime=record["datetime"],
-            logger=logger,
-            level=record["level"],
-            message=record["message"],
-            prefix=prefix
+        self.format_string = (
+            format_string
+            or "[{datetime:%d/%m/%Y %H:%M:%S}] {logger.prefix} | {level.name}[{level.value}]: {message}"
         )
 
-    def colored_format(self, record: _LogRecord) -> str:
-        """Format a log record with colors.
-        
+    async def standard_format(self, record: _LogRecord) -> str:
+        """Format log record in standard format.
+
         Args:
-            record: Log record to format.
-            
+            record: Log record to format
+
         Returns:
-            str: Formatted and colored log message.
+            str: Formatted string
         """
-        return f"{record['level'].color}{self.standard_format(record)}{_Style.RESET_ALL}"
+        return self.format_string.format(
+            logger=record["logger"],
+            datetime=record["datetime"],
+            level=record["level"],
+            message=record["message"],
+        )
+
+    async def colored_format(self, record: _LogRecord) -> str:
+        """Format log record with color highlighting.
+
+        Args:
+            record: Log record to format
+
+        Returns:
+            str: Formatted string with color highlighting
+        """
+        level_color = {
+            "DEBUG": "\033[36m",  # Cyan
+            "INFO": "\033[32m",  # Green
+            "WARNING": "\033[33m",  # Yellow
+            "ERROR": "\033[31m",  # Red
+            "CRITICAL": "\033[35m",  # Magenta
+        }.get(
+            record["level"].name, "\033[0m"
+        )  # Default to reset
+
+        reset_color = "\033[0m"
+        formatted_message = await self.standard_format(record)
+        return f"{level_color}{formatted_message}{reset_color}"
